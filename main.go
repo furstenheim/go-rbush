@@ -19,7 +19,7 @@ type Interface interface {
 	Len() int                 // Number of elements
 	Swap(i, j int)            // Swap elements with indexes i and j
 	Slice(i, j int) Interface //Slice the interface between two indices
-
+	Insert(i int, array Interface) Interface // Insert slice at position i
 }
 
 // A point basically returns coordinates
@@ -35,23 +35,21 @@ func New (points Interface) RBush {
 
 // Create an RBush index from an array of points which is already in lexicographical order
 func NewFromSortedArray (points Interface) RBush {
-	r := RBush{points: points, rootNode:nil}
+	r := RBush{rootNode:nil}
 }
 
 type RBush struct {
 	rootNode *Node
-	points Interface
 }
 
-type BBox struct {
-
-}
 
 type Node struct {
 	children []*Node
 	start, end, height int
 	isLeaf bool
 	points Interface
+	parentNode *Node
+	bbox BBox
 }
 
 func (r RBush) Search (b BBox) {
@@ -63,15 +61,24 @@ func (r RBush) Collides (b BBox) {
 }
 
 func (r *RBush) Load (points Interface) {
-	node := r.build(points, 0, points.Len(), 0)
+	node := r.build(points, 0, points.Len())
 	if (r.rootNode == nil){
 		r.rootNode = node
+	} else if (r.rootNode.height == node.height){
+		r.splitRoot(node)
 	} else {
-		// TODO
+		if (r.rootNode.height < node.height) {
+			// swap nodes and insert smaller one
+			tmpNode := r.rootNode
+			r.rootNode = node
+			node = tmpNode
+		}
+		// insert small tree into big tree
+		r.insertNode(node)
 	}
 }
 // points is assumed to be ordered
-func (r *RBush) build (points Interface, start, end, height int) Node {
+func (r *RBush) build (points Interface, start, end int) Node {
 	ch := make(chan *Node)
 	readCh := make(chan *Node)
 	exitCh := make(chan int, NUMBER_OF_SORTERS)
@@ -128,15 +135,14 @@ func (r *RBush) build (points Interface, start, end, height int) Node {
 		}(ch, readCh, exitCh)
 	}
 
-	remainingNodes := 1
 
 	rootNode := Node{start: start, end: end, height: -1, points: points}
 	ch <- &rootNode
+	remainingNodes := 1
 
 	// TODO insert
 	for remainingNodes > 0 {
 		select {
-		// nodes here are received already ordered
 		case n:= <- readCh:
 			remainingNodes -= 1
 			for _, childNode := range(n.children) {
@@ -148,7 +154,80 @@ func (r *RBush) build (points Interface, start, end, height int) Node {
 	for i:= 0; i < NUMBER_OF_SORTERS; i++ {
 		exitCh <- 1
 	}
+	rootNode.computeBBox()
 	return rootNode
+}
+
+
+func (r * RBush) insertNode (n Node) {
+	// TODO probably do something in the case chosenNode.isLeaf
+	chosenNode := r.choseSubtree(n)
+	chosenNode.children = append(chosenNode.children, &n)
+	chosenNode.bbox = chosenNode.bbox.extend(n.bbox)
+
+	// split on node overflow, propagate upwards
+	for iterNode := chosenNode; iterNode != nil; iterNode = iterNode.parentNode {
+		if (len(iterNode.children) < MAX_ENTRIES) {
+			r.split(iterNode)
+		} else {
+			break
+		}
+	}
+
+}
+
+func (r * RBush) splitRoot (n Node) {
+	// TODO pointer to parent
+	r.rootNode = Node{
+		height: r.rootNode.height + 1,
+		children: []*Node{
+			r.rootNode,
+			&n,
+		},
+	}
+}
+
+func (r *RBush) split (n *Node) {
+	// TODO
+}
+
+
+func (r * RBush) choseSubtree (n Node) *Node {
+	height := r.rootNode.height - n.height - 1
+	depth := 0
+	chosenNode := r.rootNode
+	for true {
+		if (chosenNode.isLeaf || depth - 1 == height) {
+			break
+		}
+		minArea := math.MaxFloat64
+		minEnlargement := math.MaxFloat64
+		for _, child := range (chosenNode.children) {
+			area := child.bbox.area()
+			enlargement := n.bbox.enlargedArea(child.bbox) - area
+
+			// find entry with minimum enlargment
+			if (enlargement < minEnlargement) {
+				minEnlargement = enlargement
+				if (area < minArea) {
+					minArea = area
+				}
+				chosenNode = child
+			} else if (enlargement == minEnlargement) {
+				if (area < minArea) {
+					minArea = area
+					chosenNode = child
+				}
+			}
+		}
+	}
+	return chosenNode
+
+
+}
+
+func (n *Node) computeBBox () {
+	// TODO
 }
 
 func (r RBush) Insert () {
