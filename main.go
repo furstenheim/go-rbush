@@ -121,9 +121,10 @@ func (r *RBush) build(points Interface, start, end int) Node {
 								end:    right3,
 								points: n.points,
 								height: n.height - 1,
+								parentNode: n,
 							}
-							n.children = append(n.children, child)
-							readCh <- child
+							n.children = append(n.children, &child)
+							readCh <- &child
 						}
 					}
 					// remove reference to interface, we only need it for leaf nodes
@@ -155,7 +156,7 @@ func (r *RBush) build(points Interface, start, end int) Node {
 	for i := 0; i < NUMBER_OF_SORTERS; i++ {
 		exitCh <- 1
 	}
-	rootNode.computeBBox()
+	rootNode.computeBBoxDownwards()
 	return rootNode
 }
 
@@ -235,8 +236,34 @@ func (r *RBush) choseSubtree(n Node) *Node {
 
 }
 
-func (n *Node) computeBBox() {
-	// TODO
+// Compute bbox of all tree all the way to the bottom
+func (n *Node) computeBBoxDownwards() BBox {
+	var bbox BBox
+	if n.isLeaf {
+		bbox = BBox{
+			MinX: math.MaxFloat64,
+			MaxX: -math.MaxFloat64,
+			MinY: math.MaxFloat64,
+			MaxY: -math.MaxFloat64,
+		}
+		for i := n.start; i < n.end; i++ {
+			x, y := n.points.Take(i).GetCoordinates()
+			bbox = bbox.extend(
+				BBox{
+					MinX: x,
+					MaxX: x,
+					MinY: y,
+					MaxY: y,
+				})
+		}
+	} else {
+		bbox = n.children[0].computeBBoxDownwards()
+		for i:= 1; i < len(n.children); i ++ {
+			bbox = bbox.extend(n.children[i].computeBBoxDownwards())
+		}
+	}
+	n.bbox = bbox
+	return bbox
 }
 
 func (r RBush) Clear() {
