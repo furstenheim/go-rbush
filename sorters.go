@@ -25,7 +25,7 @@ func (s pointSorter) Len() int {
 }
 
 type xSorter struct {
-	n Node
+	n          Node
 	start, end int
 }
 
@@ -36,16 +36,15 @@ func (s xSorter) Less(i, j int) bool {
 }
 
 func (s xSorter) Swap(i, j int) {
-	s.n.points.Swap(i + s.start, j + s.start)
+	s.n.points.Swap(i+s.start, j+s.start)
 }
 
 func (s xSorter) Len() int {
 	return s.end - s.start
 }
 
-
 type ySorter struct {
-	n Node
+	n          Node
 	start, end int
 }
 
@@ -56,10 +55,9 @@ func (s ySorter) Less(i, j int) bool {
 }
 
 func (s ySorter) Swap(i, j int) {
-	s.n.points.Swap(i + s.start, j + s.start)
+	s.n.points.Swap(i+s.start, j+s.start)
 }
 
 func (s ySorter) Len() int {
 	return s.end - s.start
 }
-
