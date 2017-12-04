@@ -51,7 +51,7 @@ type Node struct {
 	bbox               BBox
 }
 
-func (r RBush) Search(b BBox) []*Node {
+func (r *RBush) Search(b BBox) []*Node {
 	node := r.rootNode
 	result := make([]*Node, 0)
 	if !node.bbox.intersects(b) {
@@ -78,8 +78,28 @@ func (r RBush) Search(b BBox) []*Node {
 	return result
 }
 
-func (r RBush) Collides(b BBox) {
-
+func (r *RBush) Collides(b BBox) bool {
+	node := r.rootNode
+	if !node.bbox.intersects(b) {
+		return false
+	}
+	nodesToSearch := make([]*Node, 0, 10)
+	nodesToSearch[0] = node
+	for len(nodesToSearch) != 0 {
+		// pop first item
+		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
+		for _, c := range(node.children) {
+			// TODO leaf
+			if c.bbox.intersects(b) {
+				// TODO leaf
+				if (b.contains(c.bbox)) {
+					return true
+				}
+				nodesToSearch = append(nodesToSearch, c)
+			}
+		}
+	}
+	return false
 }
 
 // Returns all nodes and descendants in flat array
