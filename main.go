@@ -167,7 +167,7 @@ func (r *RBush) insertElement(i Interface) {
 		start:  0,
 		end:    i.Len(),
 	}
-	// TODO
+	// TODO make sure this actually works
 	r.insertNode(node)
 }
 
@@ -182,6 +182,7 @@ func (r *RBush) insertNode(n Node) {
 		if len(iterNode.children) < MAX_ENTRIES {
 			r.split(iterNode)
 		} else {
+			// TODO update bbox of all parents
 			break
 		}
 	}
@@ -200,9 +201,35 @@ func (r *RBush) splitRoot(n Node) {
 }
 
 func (r *RBush) split(n *Node) {
-	// TODO
+	n.chooseSplitAxis()
+	i := n.chooseSplitIndex()
+	newNode := Node{
+		children: n.children[i: len(n.children) - 1],
+		height: n.height,
+		// TODO is leaf
+	}
+	n.children = n.children[0: i]
+	for _, c := range(newNode.children) {
+		c.parentNode = &newNode
+	}
+	n.bbox = n.partialBBox(0, len(n.children))
+	newNode.bbox = newNode.partialBBox(0, len(newNode.children))
+	// not root
+	if n.parentNode != nil {
+		n.parentNode.children = append(n.parentNode.children, newNode)
+	} else {
+		r.splitRoot(newNode)
+	}
+
 }
 
+// sorts children by best axis for split
+func (n *Node) chooseSplitAxis () {
+
+}
+func (n *Node) chooseSplitIndex () int {
+
+}
 func (r *RBush) choseSubtree(n Node) *Node {
 	height := r.rootNode.height - n.height - 1
 	depth := 0
@@ -263,6 +290,15 @@ func (n *Node) computeBBoxDownwards() BBox {
 		}
 	}
 	n.bbox = bbox
+	return bbox
+}
+
+// compute bbox of part of the childre
+func (n *Node) partialBBox (start, end int) BBox {
+	bbox := n.children[start].bbox
+	for i := start + 1; i < end; i++ {
+		bbox = bbox.extend(n.children[i].bbox)
+	}
 	return bbox
 }
 
