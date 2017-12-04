@@ -51,12 +51,40 @@ type Node struct {
 	bbox               BBox
 }
 
-func (r RBush) Search(b BBox) {
-
+func (r RBush) Search(b BBox) []*Node {
+	node := r.rootNode
+	result := make([]*Node, 0)
+	if !node.bbox.intersects(b) {
+		return result
+	}
+	nodesToSearch := make([]*Node, 0)
+	nodesToSearch[1] = node
+	for len(nodesToSearch) != 0 {
+		// pop first item
+		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
+		for _, c := range(node.children) {
+			// TODO leaf
+			if b.intersects(c.bbox) {
+				if node.isLeaf {
+					// TODO leaf case
+				} else if (b.contains(c.bbox)) {
+					result = append(result, c.flattenDownwards())
+				} else {
+					nodesToSearch = append(nodesToSearch, c)
+				}
+			}
+		}
+	}
+	return result
 }
 
 func (r RBush) Collides(b BBox) {
 
+}
+
+// Returns all nodes and descendants in flat array
+func (n * Node) flattenDownwards () []*Node {
+	// TODO
 }
 
 func (r *RBush) Load(points Interface) {
@@ -182,8 +210,7 @@ func (r *RBush) insertNode(n Node) {
 		if len(iterNode.children) < MAX_ENTRIES {
 			r.split(iterNode)
 		} else {
-			// TODO update bbox of all parents
-			break
+			iterNode.bbox = iterNode.bbox.extend(n.bbox)
 		}
 	}
 
@@ -200,6 +227,7 @@ func (r *RBush) splitRoot(n Node) {
 	}
 }
 
+// split node into two, update bboxes
 func (r *RBush) split(n *Node) {
 	n.chooseSplitAxis()
 	i := n.chooseSplitIndex()
@@ -227,6 +255,8 @@ func (r *RBush) split(n *Node) {
 func (n *Node) chooseSplitAxis () {
 
 }
+
+// find best index to split
 func (n *Node) chooseSplitIndex () int {
 
 }
