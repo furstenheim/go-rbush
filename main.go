@@ -139,7 +139,7 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 // points is assumed to be ordered
 func (r *RBush) build(points Interface) *Node {
 	ch := make(chan *Node)
-	readCh := make(chan *Node)
+	readCh := make(chan *Node, NUMBER_OF_SORTERS)
 	exitCh := make(chan int, NUMBER_OF_SORTERS)
 	for i := 0; i < NUMBER_OF_SORTERS; i++ {
 		go func(ch, readCh chan *Node, exitCh chan int) {
@@ -150,7 +150,7 @@ func (r *RBush) build(points Interface) *Node {
 					// target number of root entries to maximize storage utilization
 					var M float64
 					if N <= MAX_ENTRIES { // Leaf node
-						n = r.createLeafNode(n.points)
+						n.setLeafNode(n.points)
 						readCh <- n
 						continue
 					}
@@ -180,11 +180,11 @@ func (r *RBush) build(points Interface) *Node {
 								parentNode: n,
 							}
 							n.children = append(n.children, &child)
-							readCh <- &child
 						}
 					}
 					// remove reference to interface, we only need it for points
 					n.points = nil
+					readCh <- n
 
 				case <-exitCh:
 					return
@@ -194,8 +194,8 @@ func (r *RBush) build(points Interface) *Node {
 		}(ch, readCh, exitCh)
 	}
 
-	rootNode := Node{height: -1, points: points}
-	ch <- &rootNode
+	rootNode := &Node{height: -1, points: points}
+	ch <- rootNode
 	remainingNodes := 1
 
 	for remainingNodes > 0 {
@@ -205,17 +205,19 @@ func (r *RBush) build(points Interface) *Node {
 			if n.isLeaf {
 				continue // children of leaf nodes are just points so we should not try to create nodes out of there
 			}
-			for _, childNode := range n.children {
+			for _, c := range(n.children) {
+				// we need to compute children
 				remainingNodes += 1
-				ch <- childNode
+				ch <- c
 			}
+			// else we have already computed
 		}
 	}
 	for i := 0; i < NUMBER_OF_SORTERS; i++ {
 		exitCh <- 1
 	}
 	rootNode.computeBBoxDownwards()
-	return &rootNode
+	return rootNode
 }
 
 func (r *RBush) insertElement(p Interface) {
@@ -264,16 +266,15 @@ func (r *RBush) splitRoot(n *Node) {
 	r.rootNode = &newRoot
 }
 
-func (r *RBush) createLeafNode(p Interface) *Node {
+func (n * Node) setLeafNode(p Interface) {
 	// Here we follow original rbush implementation.
 	// TODO try to store elements children as points instead of nodes
 	// It seems a bit inefficient to have one child for each point, but otherwise the complexity of the code blows up
 	children := make([]*Node, p.Len())
-	n := Node{
-		children: children,
-		isLeaf: true,
-		height: 0,
-	}
+	n.children = children
+	n.points = nil
+	n.height = 1
+	n.isLeaf = true
 
 	for i:= 0; i < p.Len(); i++ {
 		x, y := p.GetCoordinatesAt(i)
@@ -285,10 +286,9 @@ func (r *RBush) createLeafNode(p Interface) *Node {
 				MinY: y,
 				MaxY: y,
 			},
-			parentNode: &n,
+			parentNode: n,
 		}
 	}
-	return &n
 }
 
 // split node into two, update bboxes
@@ -369,6 +369,7 @@ func (r *RBush) choseSubtree(n *Node) *Node {
 
 // Compute bbox of all tree all the way to the bottom
 func (n *Node) computeBBoxDownwards() BBox {
+
 	var bbox BBox
 	if n.isLeaf {
 		bbox = BBox{
