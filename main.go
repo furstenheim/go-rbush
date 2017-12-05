@@ -15,7 +15,7 @@ const (
 )
 
 type Interface interface {
-	Take(i int) Point                        // Retrieve point at position i
+	GetCoordinatesAt(i int) (x, y float64)                        // Retrieve point at position i
 	Len() int                                // Number of elements
 	Swap(i, j int)                           // Swap elements with indexes i and j
 	Slice(i, j int) Interface                //Slice the interface between two indices
@@ -44,7 +44,7 @@ type RBush struct {
 
 type Node struct {
 	children           []*Node
-	start, end, height int
+	height int
 	isLeaf             bool
 	points             Interface
 	parentNode         *Node
@@ -108,7 +108,7 @@ func (n * Node) flattenDownwards () []*Node {
 }
 
 func (r *RBush) Load(points Interface) {
-	node := r.build(points, 0, points.Len())
+	node := r.build(points)
 	if r.rootNode == nil {
 		r.rootNode = node
 	} else if r.rootNode.height == node.height {
@@ -126,7 +126,7 @@ func (r *RBush) Load(points Interface) {
 }
 
 // points is assumed to be ordered
-func (r *RBush) build(points Interface, start, end int) Node {
+func (r *RBush) build(points Interface) Node {
 	ch := make(chan *Node)
 	readCh := make(chan *Node)
 	exitCh := make(chan int, NUMBER_OF_SORTERS)
@@ -135,12 +135,13 @@ func (r *RBush) build(points Interface, start, end int) Node {
 			for true {
 				select {
 				case n := <-ch:
-					N := n.end - n.start + 1
+					N := n.points.Len() + 1 // why + 1 ?
 					// target number of root entries to maximize storage utilization
 					var M float64
 					if N <= MAX_ENTRIES { // Leaf node
 						// TODO calcbox, maybe associate slice
-						n.isLeaf = true
+
+						n = r.createLeafNode(n.points)
 						readCh <- n
 						continue
 					}
@@ -151,23 +152,21 @@ func (r *RBush) build(points Interface, start, end int) Node {
 						// This is the target height
 						n.height = math.Ceil(math.Log(N) / math.Log(MAX_ENTRIES))
 					} else {
-						sortX := xSorter{n: n, start: n.start, end: n.end}
+						sortX := xSorter{n: n, start: 0, end: n.points.Len()}
 						sort.Sort(sortX)
 					}
 					M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, n.height-1)))
 
 					N2 := math.Ceil(N / M)
 					N1 := N2 * math.Ceil(math.Sqrt(M))
-					for i := n.start; i <= n.end; i += N1 {
-						right2 := math.Min(i+N-1, n.end)
+					for i := 0; i <= n.points.Len(); i += N1 {
+						right2 := math.Min(i+N-1, n.points.Len())
 						sortY := ySorter{n: n, start: i, end: right2}
 						sort.Sort(sortY)
 						for j := i; j <= right2; j += N2 {
 							right3 := math.Min(j+N2-1, right2)
 							child := Node{
-								start:  j,
-								end:    right3,
-								points: n.points,
+								points: n.points.Slice(j, right3),
 								height: n.height - 1,
 								parentNode: n,
 							}
@@ -186,7 +185,7 @@ func (r *RBush) build(points Interface, start, end int) Node {
 		}(ch, readCh, exitCh)
 	}
 
-	rootNode := Node{start: start, end: end, height: -1, points: points}
+	rootNode := Node{height: -1, points: points}
 	ch <- &rootNode
 	remainingNodes := 1
 
@@ -195,6 +194,9 @@ func (r *RBush) build(points Interface, start, end int) Node {
 		select {
 		case n := <-readCh:
 			remainingNodes -= 1
+			if n.isLeaf {
+				continue // children of leaf nodes are just points so we should not try to create nodes out of there
+			}
 			for _, childNode := range n.children {
 				remainingNodes += 1
 				ch <- childNode
@@ -208,26 +210,31 @@ func (r *RBush) build(points Interface, start, end int) Node {
 	return rootNode
 }
 
-func (r *RBush) insertElement(i Interface) {
+func (r *RBush) insertElement(p Interface) {
+	x, y := p.GetCoordinatesAt(0)
 	node := Node{
-		isLeaf: true,
-		points: i,
-		start:  0,
-		end:    i.Len(),
+		points: p,
+		bbox: BBox{
+			MinX: x,
+			MaxX: x,
+			MinY: y,
+			MaxY: y,
+		},
 	}
 	// TODO make sure this actually works
 	r.insertNode(node)
 }
 
 func (r *RBush) insertNode(n Node) {
-	// TODO probably do something in the case chosenNode.isLeaf
 	chosenNode := r.choseSubtree(n)
+	// TODO probably do something in the case : n.isLeaf, chosenNode.isLeaf
+	n.parentNode = &chosenNode
 	chosenNode.children = append(chosenNode.children, &n)
 	chosenNode.bbox = chosenNode.bbox.extend(n.bbox)
 
 	// split on node overflow, propagate upwards
 	for iterNode := chosenNode; iterNode != nil; iterNode = iterNode.parentNode {
-		if len(iterNode.children) < MAX_ENTRIES {
+		if len(iterNode.children) > MAX_ENTRIES {
 			r.split(iterNode)
 		} else {
 			iterNode.bbox = iterNode.bbox.extend(n.bbox)
@@ -237,14 +244,42 @@ func (r *RBush) insertNode(n Node) {
 }
 
 func (r *RBush) splitRoot(n Node) {
-	// TODO pointer to parent
-	r.rootNode = Node{
+	newRoot := Node{
 		height: r.rootNode.height + 1,
 		children: []*Node{
 			r.rootNode,
 			&n,
 		},
 	}
+	r.rootNode.parentNode = &newRoot
+	n.parentNode = &newRoot
+	r.rootNode = &newRoot
+}
+
+func (r *RBush) createLeafNode(p Interface) *Node {
+	// Here we follow original rbush implementation.
+	// It seems a bit inefficient to have one child for each point, but otherwise the complexity of the code blows up
+	children := make([]*Node, p.Len())
+	n := Node{
+		children: children,
+		isLeaf: true,
+		height: 0,
+	}
+
+	for i:= 0; i < p.Len(); i++ {
+		x, y := p.GetCoordinatesAt(i)
+		children[i] = &Node{
+			points: p.Slice(i, i+1),
+			bbox: BBox{
+				MinX: x,
+				MaxX: x,
+				MinY: y,
+				MaxY: y,
+			},
+			parentNode: &n,
+		}
+	}
+	return &n
 }
 
 // split node into two, update bboxes
@@ -254,6 +289,7 @@ func (r *RBush) split(n *Node) {
 	newNode := Node{
 		children: n.children[i: len(n.children) - 1],
 		height: n.height,
+		parentNode: n.parentNode,
 		// TODO is leaf
 	}
 	n.children = n.children[0: i]
@@ -280,12 +316,15 @@ func (n *Node) chooseSplitAxis () {
 func (n *Node) chooseSplitIndex () int {
 
 }
+
+// find optimal node searching for the node that grows less in area.
 func (r *RBush) choseSubtree(n Node) *Node {
-	height := r.rootNode.height - n.height - 1
+	height := r.rootNode.height - n.height
 	depth := 0
 	chosenNode := r.rootNode
 	for true {
-		if chosenNode.isLeaf || depth-1 == height {
+		// This part is a bit fishy. We might chose a leaf node and then some of the children are points while others are not
+		if chosenNode.isLeaf || depth == height {
 			break
 		}
 		minArea := math.MaxFloat64
@@ -308,6 +347,7 @@ func (r *RBush) choseSubtree(n Node) *Node {
 				}
 			}
 		}
+		depth++
 	}
 	return chosenNode
 
@@ -323,15 +363,11 @@ func (n *Node) computeBBoxDownwards() BBox {
 			MinY: math.MaxFloat64,
 			MaxY: -math.MaxFloat64,
 		}
-		for i := n.start; i < n.end; i++ {
-			x, y := n.points.Take(i).GetCoordinates()
-			bbox = bbox.extend(
-				BBox{
-					MinX: x,
-					MaxX: x,
-					MinY: y,
-					MaxY: y,
-				})
+		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
+		// Note that if we insert at a leaf node it won't be true anymore that children of leaf are just points, so we should only
+		// call this method in a newly created subtree
+		for i:= 1; i < len(n.children); i ++ {
+			bbox = bbox.extend(n.children[i].bbox)
 		}
 	} else {
 		bbox = n.children[0].computeBBoxDownwards()

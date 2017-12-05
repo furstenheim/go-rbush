@@ -5,8 +5,8 @@ type pointSorter struct {
 }
 
 func (s pointSorter) Less(i, j int) bool {
-	x1, y1 := s.i.Take(i).GetCoordinates()
-	x2, y2 := s.i.Take(j).GetCoordinates()
+	x1, y1 := s.i.GetCoordinatesAt(i)
+	x2, y2 := s.i.GetCoordinatesAt(j)
 	if x1 < x2 {
 		return true
 	}
@@ -30,8 +30,8 @@ type xSorter struct {
 }
 
 func (s xSorter) Less(i, j int) bool {
-	x1, _ := s.n.points.Take(i + s.start).GetCoordinates()
-	x2, _ := s.n.points.Take(j + s.start).GetCoordinates()
+	x1, _ := s.n.points.GetCoordinatesAt(i + s.start)
+	x2, _ := s.n.points.GetCoordinatesAt(j + s.start)
 	return x1 < x2
 }
 
@@ -49,8 +49,8 @@ type ySorter struct {
 }
 
 func (s ySorter) Less(i, j int) bool {
-	_, y1 := s.n.points.Take(i + s.start).GetCoordinates()
-	_, y2 := s.n.points.Take(j + s.start).GetCoordinates()
+	_, y1 := s.n.points.GetCoordinatesAt(i + s.start)
+	_, y2 := s.n.points.GetCoordinatesAt(j + s.start)
 	return y1 < y2
 }
 
