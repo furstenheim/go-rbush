@@ -25,7 +25,7 @@ func (s pointSorter) Len() int {
 }
 
 type xSorter struct {
-	n          Node
+	n          *Node
 	start, end int
 }
 
@@ -44,7 +44,7 @@ func (s xSorter) Len() int {
 }
 
 type ySorter struct {
-	n          Node
+	n          *Node
 	start, end int
 }
 

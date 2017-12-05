@@ -19,7 +19,6 @@ type Interface interface {
 	Len() int                                // Number of elements
 	Swap(i, j int)                           // Swap elements with indexes i and j
 	Slice(i, j int) Interface                //Slice the interface between two indices
-	Insert(i int, array Interface) Interface // Insert slice at position i
 }
 
 // A point basically returns coordinates
@@ -28,8 +27,8 @@ type Point interface {
 }
 
 // Create an RBush index from an array of points
-func New(points Interface) RBush {
-	return RBush{}
+func New() *RBush {
+	return &RBush{}
 }
 
 type RBush struct {
@@ -62,7 +61,7 @@ func (r *RBush) Search(b BBox) []*Node {
 					// child is basically a point
 					result = append(result, c)
 				} else if (b.contains(c.bbox)) {
-					result = append(result, c.flattenDownwards())
+					result = append(result, c.flattenDownwards()...)
 				} else {
 					nodesToSearch = append(nodesToSearch, c)
 				}
@@ -103,20 +102,21 @@ func (n * Node) flattenDownwards () []*Node {
 	for len(nodesToSearch) != 0 {
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
 		if node.isLeaf {
-			result = append(result, node.children)
+			result = append(result, node.children...)
 		} else {
-			nodesToSearch = append(nodesToSearch, node.children)
+			nodesToSearch = append(nodesToSearch, node.children...)
 		}
 	}
 	return result
 }
 
-func (r *RBush) Load(points Interface) {
+func (r *RBush) Load(points Interface) *RBush {
 	sort.Sort(pointSorter{i: points})
 	r.LoadSortedArray(points)
+	return r
 }
 
-func (r *RBush) LoadSortedArray(points Interface) {
+func (r *RBush) LoadSortedArray(points Interface) *RBush {
 	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
 	if r.rootNode == nil {
@@ -133,10 +133,11 @@ func (r *RBush) LoadSortedArray(points Interface) {
 		// insert small tree into big tree
 		r.insertNode(node)
 	}
+	return r
 }
 
 // points is assumed to be ordered
-func (r *RBush) build(points Interface) Node {
+func (r *RBush) build(points Interface) *Node {
 	ch := make(chan *Node)
 	readCh := make(chan *Node)
 	exitCh := make(chan int, NUMBER_OF_SORTERS)
@@ -158,21 +159,21 @@ func (r *RBush) build(points Interface) Node {
 					// first node inserted
 					if n.height == -1 {
 						// This is the target height
-						n.height = math.Ceil(math.Log(N) / math.Log(MAX_ENTRIES))
+						n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(MAX_ENTRIES)))
 					} else {
 						sortX := xSorter{n: n, start: 0, end: n.points.Len()}
 						sort.Sort(sortX)
 					}
-					M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, n.height-1)))
+					M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, float64(n.height-1))))
 
-					N2 := math.Ceil(N / M)
-					N1 := N2 * math.Ceil(math.Sqrt(M))
+					N2 := int(math.Ceil(float64(N) / M))
+					N1 := N2 * int(math.Ceil(math.Sqrt(M)))
 					for i := 0; i <= n.points.Len(); i += N1 {
-						right2 := math.Min(i+N-1, n.points.Len())
+						right2 := minInt(i+N-1, n.points.Len())
 						sortY := ySorter{n: n, start: i, end: right2}
 						sort.Sort(sortY)
 						for j := i; j <= right2; j += N2 {
-							right3 := math.Min(j+N2-1, right2)
+							right3 := minInt(j+N2-1, right2)
 							child := Node{
 								points: n.points.Slice(j, right3),
 								height: n.height - 1,
@@ -214,7 +215,7 @@ func (r *RBush) build(points Interface) Node {
 		exitCh <- 1
 	}
 	rootNode.computeBBoxDownwards()
-	return rootNode
+	return &rootNode
 }
 
 func (r *RBush) insertElement(p Interface) {
@@ -229,14 +230,14 @@ func (r *RBush) insertElement(p Interface) {
 		},
 	}
 	// TODO make sure this actually works
-	r.insertNode(node)
+	r.insertNode(&node)
 }
 
-func (r *RBush) insertNode(n Node) {
+func (r *RBush) insertNode(n *Node) {
 	chosenNode := r.choseSubtree(n)
 	// TODO probably do something in the case : n.isLeaf, chosenNode.isLeaf
-	n.parentNode = &chosenNode
-	chosenNode.children = append(chosenNode.children, &n)
+	n.parentNode = chosenNode
+	chosenNode.children = append(chosenNode.children, n)
 	chosenNode.bbox = chosenNode.bbox.extend(n.bbox)
 
 	// split on node overflow, propagate upwards
@@ -250,12 +251,12 @@ func (r *RBush) insertNode(n Node) {
 
 }
 
-func (r *RBush) splitRoot(n Node) {
+func (r *RBush) splitRoot(n *Node) {
 	newRoot := Node{
 		height: r.rootNode.height + 1,
 		children: []*Node{
 			r.rootNode,
-			&n,
+			n,
 		},
 	}
 	r.rootNode.parentNode = &newRoot
@@ -308,25 +309,26 @@ func (r *RBush) split(n *Node) {
 	newNode.bbox = newNode.partialBBox(0, len(newNode.children))
 	// not root
 	if n.parentNode != nil {
-		n.parentNode.children = append(n.parentNode.children, newNode)
+		n.parentNode.children = append(n.parentNode.children, &newNode)
 	} else {
-		r.splitRoot(newNode)
+		r.splitRoot(&newNode)
 	}
 
 }
 
 // sorts children by best axis for split
 func (n *Node) chooseSplitAxis () {
-
+	// TODO do properly
 }
 
 // find best index to split
 func (n *Node) chooseSplitIndex () int {
-
+	// TODO do properly
+	return len(n.children) / 2
 }
 
 // find optimal node searching for the node that grows less in area.
-func (r *RBush) choseSubtree(n Node) *Node {
+func (r *RBush) choseSubtree(n *Node) *Node {
 	height := r.rootNode.height - n.height
 	if height < 0 {
 		// Most definitely an error in the implementation
@@ -408,4 +410,11 @@ func (r RBush) Remove() {
 
 func (r RBush) ToBBox() {
 
+}
+
+func minInt (a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
