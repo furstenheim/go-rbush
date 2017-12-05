@@ -29,13 +29,7 @@ type Point interface {
 
 // Create an RBush index from an array of points
 func New(points Interface) RBush {
-	sort.Sort(pointSorter{i: points})
-	return NewFromSortedArray(points)
-}
-
-// Create an RBush index from an array of points which is already in lexicographical order
-func NewFromSortedArray(points Interface) RBush {
-	r := RBush{rootNode: nil}
+	return RBush{}
 }
 
 type RBush struct {
@@ -57,16 +51,16 @@ func (r *RBush) Search(b BBox) []*Node {
 	if !node.bbox.intersects(b) {
 		return result
 	}
-	nodesToSearch := make([]*Node, 0)
+	nodesToSearch := make([]*Node, 0, 1)
 	nodesToSearch[1] = node
 	for len(nodesToSearch) != 0 {
 		// pop first item
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
 		for _, c := range(node.children) {
-			// TODO leaf
 			if b.intersects(c.bbox) {
 				if node.isLeaf {
-					// TODO leaf case
+					// child is basically a point
+					result = append(result, c)
 				} else if (b.contains(c.bbox)) {
 					result = append(result, c.flattenDownwards())
 				} else {
@@ -91,8 +85,7 @@ func (r *RBush) Collides(b BBox) bool {
 		for _, c := range(node.children) {
 			// TODO leaf
 			if c.bbox.intersects(b) {
-				// TODO leaf
-				if (b.contains(c.bbox)) {
+				if (node.isLeaf || b.contains(c.bbox)) {
 					return true
 				}
 				nodesToSearch = append(nodesToSearch, c)
@@ -102,12 +95,29 @@ func (r *RBush) Collides(b BBox) bool {
 	return false
 }
 
-// Returns all nodes and descendants in flat array
+// Returns all end points inside node
 func (n * Node) flattenDownwards () []*Node {
-	// TODO
+	var node *Node
+	result := make([]*Node, 0, len(n.children))
+	nodesToSearch := []*Node{n}
+	for len(nodesToSearch) != 0 {
+		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
+		if node.isLeaf {
+			result = append(result, node.children)
+		} else {
+			nodesToSearch = append(nodesToSearch, node.children)
+		}
+	}
+	return result
 }
 
 func (r *RBush) Load(points Interface) {
+	sort.Sort(pointSorter{i: points})
+	r.LoadSortedArray(points)
+}
+
+func (r *RBush) LoadSortedArray(points Interface) {
+	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
 	if r.rootNode == nil {
 		r.rootNode = node
@@ -139,8 +149,6 @@ func (r *RBush) build(points Interface) Node {
 					// target number of root entries to maximize storage utilization
 					var M float64
 					if N <= MAX_ENTRIES { // Leaf node
-						// TODO calcbox, maybe associate slice
-
 						n = r.createLeafNode(n.points)
 						readCh <- n
 						continue
@@ -174,7 +182,7 @@ func (r *RBush) build(points Interface) Node {
 							readCh <- &child
 						}
 					}
-					// remove reference to interface, we only need it for leaf nodes
+					// remove reference to interface, we only need it for points
 					n.points = nil
 
 				case <-exitCh:
@@ -189,7 +197,6 @@ func (r *RBush) build(points Interface) Node {
 	ch <- &rootNode
 	remainingNodes := 1
 
-	// TODO insert
 	for remainingNodes > 0 {
 		select {
 		case n := <-readCh:
@@ -258,6 +265,7 @@ func (r *RBush) splitRoot(n Node) {
 
 func (r *RBush) createLeafNode(p Interface) *Node {
 	// Here we follow original rbush implementation.
+	// TODO try to store elements children as points instead of nodes
 	// It seems a bit inefficient to have one child for each point, but otherwise the complexity of the code blows up
 	children := make([]*Node, p.Len())
 	n := Node{
@@ -290,7 +298,7 @@ func (r *RBush) split(n *Node) {
 		children: n.children[i: len(n.children) - 1],
 		height: n.height,
 		parentNode: n.parentNode,
-		// TODO is leaf
+		isLeaf: n.isLeaf,
 	}
 	n.children = n.children[0: i]
 	for _, c := range(newNode.children) {
@@ -320,10 +328,14 @@ func (n *Node) chooseSplitIndex () int {
 // find optimal node searching for the node that grows less in area.
 func (r *RBush) choseSubtree(n Node) *Node {
 	height := r.rootNode.height - n.height
+	if height < 0 {
+		// Most definitely an error in the implementation
+		log.Fatal("We are inserting a big tree into a smaller tree.")
+	}
 	depth := 0
 	chosenNode := r.rootNode
 	for true {
-		// This part is a bit fishy. We might chose a leaf node and then some of the children are points while others are not
+		// We always insert small tree into big tree so it cannot happen that we insert a non point into a leaf
 		if chosenNode.isLeaf || depth == height {
 			break
 		}
@@ -364,8 +376,6 @@ func (n *Node) computeBBoxDownwards() BBox {
 			MaxY: -math.MaxFloat64,
 		}
 		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
-		// Note that if we insert at a leaf node it won't be true anymore that children of leaf are just points, so we should only
-		// call this method in a newly created subtree
 		for i:= 1; i < len(n.children); i ++ {
 			bbox = bbox.extend(n.children[i].bbox)
 		}
