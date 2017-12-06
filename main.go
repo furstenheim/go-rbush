@@ -6,16 +6,17 @@ import (
 	"log"
 	"math"
 	"sort"
+	"runtime"
 )
-
 const (
 	MAX_ENTRIES       = 9
 	MIN_ENTRIES       = 4
 	NUMBER_OF_SORTERS = 4
 )
 
+
 type Interface interface {
-	GetCoordinatesAt(i int) (x, y float64)                        // Retrieve point at position i
+	GetBBoxAt(i int) (x1, y1, x2, y2 float64)                        // Retrieve point at position i
 	Len() int                                // Number of elements
 	Swap(i, j int)                           // Swap elements with indexes i and j
 	Slice(i, j int) Interface                //Slice the interface between two indices
@@ -45,6 +46,8 @@ type Node struct {
 }
 
 func (r *RBush) Search(b BBox) []*Node {
+	// TODO remove
+	_ = runtime.GOOS
 	node := r.rootNode
 	result := make([]*Node, 0)
 	if !node.bbox.intersects(b) {
@@ -146,7 +149,7 @@ func (r *RBush) build(points Interface) *Node {
 			for true {
 				select {
 				case n := <-ch:
-					N := n.points.Len() + 1 // why + 1 ?
+					N := n.points.Len()
 					// target number of root entries to maximize storage utilization
 					var M float64
 					if N <= MAX_ENTRIES { // Leaf node
@@ -201,6 +204,7 @@ func (r *RBush) build(points Interface) *Node {
 	for remainingNodes > 0 {
 		select {
 		case n := <-readCh:
+			// runtime.Breakpoint()
 			remainingNodes -= 1
 			if n.isLeaf {
 				continue // children of leaf nodes are just points so we should not try to create nodes out of there
@@ -221,14 +225,14 @@ func (r *RBush) build(points Interface) *Node {
 }
 
 func (r *RBush) insertElement(p Interface) {
-	x, y := p.GetCoordinatesAt(0)
+	x1, y1, x2, y2 := p.GetBBoxAt(0)
 	node := Node{
 		points: p,
 		bbox: BBox{
-			MinX: x,
-			MaxX: x,
-			MinY: y,
-			MaxY: y,
+			MinX: x1,
+			MaxX: x2,
+			MinY: y1,
+			MaxY: y2,
 		},
 	}
 	// TODO make sure this actually works
@@ -277,14 +281,14 @@ func (n * Node) setLeafNode(p Interface) {
 	n.isLeaf = true
 
 	for i:= 0; i < p.Len(); i++ {
-		x, y := p.GetCoordinatesAt(i)
+		x1, y1, x2, y2 := p.GetBBoxAt(i)
 		children[i] = &Node{
 			points: p.Slice(i, i+1),
 			bbox: BBox{
-				MinX: x,
-				MaxX: x,
-				MinY: y,
-				MaxY: y,
+				MinX: x1,
+				MaxX: x2,
+				MinY: y1,
+				MaxY: y2,
 			},
 			parentNode: n,
 		}

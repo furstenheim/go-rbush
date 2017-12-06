@@ -8,7 +8,8 @@ import (
 func TestRBush_Load_9_max_entries_by_default(t *testing.T) {
 	r := New().Load(someData(9))
 	assertEqual(t, r.rootNode.height, 1, "")
-
+	r = New().Load(someData(10))
+	assertEqual(t, r.rootNode.height, 2, "")
 }
 
 
@@ -23,8 +24,8 @@ func someData (n int) coordinates {
 
 type coordinates [][2]float64
 
-func (c coordinates) GetCoordinatesAt(i int) (x,y float64) {
-	return c[i][0], c[i][1]
+func (c coordinates) GetBBoxAt(i int) (x1, y1, x2, y2 float64) {
+	return c[i][0], c[i][1], c[i][0], c[i][1]
 }
 
 func (c coordinates) Len() int {
@@ -47,5 +48,5 @@ func assertEqual(t *testing.T, a interface{}, b interface{}, message string) {
 	if len(message) == 0 {
 		message = fmt.Sprintf("%v != %v", a, b)
 	}
-	t.Fatal(message)
+	t.Errorf(message)
 }
