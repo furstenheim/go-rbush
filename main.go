@@ -5,21 +5,21 @@ package go_rbush
 import (
 	"log"
 	"math"
-	"sort"
 	"runtime"
+	"sort"
 )
+
 const (
 	MAX_ENTRIES       = 9
 	MIN_ENTRIES       = 4
 	NUMBER_OF_SORTERS = 4
 )
 
-
 type Interface interface {
-	GetBBoxAt(i int) (x1, y1, x2, y2 float64)                        // Retrieve point at position i
-	Len() int                                // Number of elements
-	Swap(i, j int)                           // Swap elements with indexes i and j
-	Slice(i, j int) Interface                //Slice the interface between two indices
+	GetBBoxAt(i int) (x1, y1, x2, y2 float64) // Retrieve point at position i
+	Len() int                                 // Number of elements
+	Swap(i, j int)                            // Swap elements with indexes i and j
+	Slice(i, j int) Interface                 //Slice the interface between two indices
 }
 
 // A point basically returns coordinates
@@ -37,12 +37,12 @@ type RBush struct {
 }
 
 type Node struct {
-	children           []*Node
-	height int
-	isLeaf             bool
-	points             Interface
-	parentNode         *Node
-	BBox               BBox
+	children   []*Node
+	height     int
+	isLeaf     bool
+	points     Interface
+	parentNode *Node
+	BBox       BBox
 }
 
 func (r *RBush) Search(b BBox) []*Node {
@@ -58,12 +58,12 @@ func (r *RBush) Search(b BBox) []*Node {
 	for len(nodesToSearch) != 0 {
 		// pop first item
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
-		for _, c := range(node.children) {
+		for _, c := range node.children {
 			if b.intersects(c.BBox) {
 				if node.isLeaf {
 					// child is basically a point
 					result = append(result, c)
-				} else if (b.contains(c.BBox)) {
+				} else if b.contains(c.BBox) {
 					result = append(result, c.flattenDownwards()...)
 				} else {
 					nodesToSearch = append(nodesToSearch, c)
@@ -84,10 +84,10 @@ func (r *RBush) Collides(b BBox) bool {
 	for len(nodesToSearch) != 0 {
 		// pop first item
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
-		for _, c := range(node.children) {
+		for _, c := range node.children {
 			// TODO leaf
 			if c.BBox.intersects(b) {
-				if (node.isLeaf || b.contains(c.BBox)) {
+				if node.isLeaf || b.contains(c.BBox) {
 					return true
 				}
 				nodesToSearch = append(nodesToSearch, c)
@@ -98,7 +98,7 @@ func (r *RBush) Collides(b BBox) bool {
 }
 
 // Returns all end points inside node
-func (n * Node) flattenDownwards () []*Node {
+func (n *Node) flattenDownwards() []*Node {
 	var node *Node
 	result := make([]*Node, 0, len(n.children))
 	nodesToSearch := []*Node{n}
@@ -178,8 +178,8 @@ func (r *RBush) build(points Interface) *Node {
 						for j := i; j <= right2; j += N2 {
 							right3 := minInt(j+N2-1, right2)
 							child := Node{
-								points: n.points.Slice(j, right3),
-								height: n.height - 1,
+								points:     n.points.Slice(j, right3),
+								height:     n.height - 1,
 								parentNode: n,
 							}
 							n.children = append(n.children, &child)
@@ -209,7 +209,7 @@ func (r *RBush) build(points Interface) *Node {
 			if n.isLeaf {
 				continue // children of leaf nodes are just points so we should not try to create nodes out of there
 			}
-			for _, c := range(n.children) {
+			for _, c := range n.children {
 				// we need to compute children
 				remainingNodes += 1
 				ch <- c
@@ -270,7 +270,7 @@ func (r *RBush) splitRoot(n *Node) {
 	r.rootNode = &newRoot
 }
 
-func (n * Node) setLeafNode(p Interface) {
+func (n *Node) setLeafNode(p Interface) {
 	// Here we follow original rbush implementation.
 	// TODO try to store elements children as points instead of nodes
 	// It seems a bit inefficient to have one child for each point, but otherwise the complexity of the code blows up
@@ -280,7 +280,7 @@ func (n * Node) setLeafNode(p Interface) {
 	n.height = 1
 	n.isLeaf = true
 
-	for i:= 0; i < p.Len(); i++ {
+	for i := 0; i < p.Len(); i++ {
 		x1, y1, x2, y2 := p.GetBBoxAt(i)
 		children[i] = &Node{
 			points: p.Slice(i, i+1),
@@ -300,13 +300,13 @@ func (r *RBush) split(n *Node) {
 	n.chooseSplitAxis()
 	i := n.chooseSplitIndex()
 	newNode := Node{
-		children: n.children[i: len(n.children) - 1],
-		height: n.height,
+		children:   n.children[i : len(n.children)-1],
+		height:     n.height,
 		parentNode: n.parentNode,
-		isLeaf: n.isLeaf,
+		isLeaf:     n.isLeaf,
 	}
-	n.children = n.children[0: i]
-	for _, c := range(newNode.children) {
+	n.children = n.children[0:i]
+	for _, c := range newNode.children {
 		c.parentNode = &newNode
 	}
 	n.BBox = n.partialBBox(0, len(n.children))
@@ -321,12 +321,12 @@ func (r *RBush) split(n *Node) {
 }
 
 // sorts children by best axis for split
-func (n *Node) chooseSplitAxis () {
+func (n *Node) chooseSplitAxis() {
 	// TODO do properly
 }
 
 // find best index to split
-func (n *Node) chooseSplitIndex () int {
+func (n *Node) chooseSplitIndex() int {
 	// TODO do properly
 	return len(n.children) / 2
 }
@@ -383,12 +383,12 @@ func (n *Node) computeBBoxDownwards() BBox {
 			MaxY: -math.MaxFloat64,
 		}
 		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
-		for i:= 1; i < len(n.children); i ++ {
+		for i := 1; i < len(n.children); i++ {
 			bbox = bbox.extend(n.children[i].BBox)
 		}
 	} else {
 		bbox = n.children[0].computeBBoxDownwards()
-		for i:= 1; i < len(n.children); i ++ {
+		for i := 1; i < len(n.children); i++ {
 			bbox = bbox.extend(n.children[i].computeBBoxDownwards())
 		}
 	}
@@ -397,7 +397,7 @@ func (n *Node) computeBBoxDownwards() BBox {
 }
 
 // compute bbox of part of the childre
-func (n *Node) partialBBox (start, end int) BBox {
+func (n *Node) partialBBox(start, end int) BBox {
 	bbox := n.children[start].BBox
 	for i := start + 1; i < end; i++ {
 		bbox = bbox.extend(n.children[i].BBox)
@@ -417,7 +417,7 @@ func (r RBush) ToBBox() {
 
 }
 
-func minInt (a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
