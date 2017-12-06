@@ -42,7 +42,7 @@ type Node struct {
 	isLeaf             bool
 	points             Interface
 	parentNode         *Node
-	bbox               BBox
+	BBox               BBox
 }
 
 func (r *RBush) Search(b BBox) []*Node {
@@ -50,20 +50,20 @@ func (r *RBush) Search(b BBox) []*Node {
 	_ = runtime.GOOS
 	node := r.rootNode
 	result := make([]*Node, 0)
-	if !node.bbox.intersects(b) {
+	if !node.BBox.intersects(b) {
 		return result
 	}
 	nodesToSearch := make([]*Node, 0, 1)
-	nodesToSearch[1] = node
+	nodesToSearch = append(nodesToSearch, node)
 	for len(nodesToSearch) != 0 {
 		// pop first item
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
 		for _, c := range(node.children) {
-			if b.intersects(c.bbox) {
+			if b.intersects(c.BBox) {
 				if node.isLeaf {
 					// child is basically a point
 					result = append(result, c)
-				} else if (b.contains(c.bbox)) {
+				} else if (b.contains(c.BBox)) {
 					result = append(result, c.flattenDownwards()...)
 				} else {
 					nodesToSearch = append(nodesToSearch, c)
@@ -76,7 +76,7 @@ func (r *RBush) Search(b BBox) []*Node {
 
 func (r *RBush) Collides(b BBox) bool {
 	node := r.rootNode
-	if !node.bbox.intersects(b) {
+	if !node.BBox.intersects(b) {
 		return false
 	}
 	nodesToSearch := make([]*Node, 0, 10)
@@ -86,8 +86,8 @@ func (r *RBush) Collides(b BBox) bool {
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
 		for _, c := range(node.children) {
 			// TODO leaf
-			if c.bbox.intersects(b) {
-				if (node.isLeaf || b.contains(c.bbox)) {
+			if c.BBox.intersects(b) {
+				if (node.isLeaf || b.contains(c.BBox)) {
 					return true
 				}
 				nodesToSearch = append(nodesToSearch, c)
@@ -228,7 +228,7 @@ func (r *RBush) insertElement(p Interface) {
 	x1, y1, x2, y2 := p.GetBBoxAt(0)
 	node := Node{
 		points: p,
-		bbox: BBox{
+		BBox: BBox{
 			MinX: x1,
 			MaxX: x2,
 			MinY: y1,
@@ -244,14 +244,14 @@ func (r *RBush) insertNode(n *Node) {
 	// TODO probably do something in the case : n.isLeaf, chosenNode.isLeaf
 	n.parentNode = chosenNode
 	chosenNode.children = append(chosenNode.children, n)
-	chosenNode.bbox = chosenNode.bbox.extend(n.bbox)
+	chosenNode.BBox = chosenNode.BBox.extend(n.BBox)
 
 	// split on node overflow, propagate upwards
 	for iterNode := chosenNode; iterNode != nil; iterNode = iterNode.parentNode {
 		if len(iterNode.children) > MAX_ENTRIES {
 			r.split(iterNode)
 		} else {
-			iterNode.bbox = iterNode.bbox.extend(n.bbox)
+			iterNode.BBox = iterNode.BBox.extend(n.BBox)
 		}
 	}
 
@@ -284,7 +284,7 @@ func (n * Node) setLeafNode(p Interface) {
 		x1, y1, x2, y2 := p.GetBBoxAt(i)
 		children[i] = &Node{
 			points: p.Slice(i, i+1),
-			bbox: BBox{
+			BBox: BBox{
 				MinX: x1,
 				MaxX: x2,
 				MinY: y1,
@@ -309,8 +309,8 @@ func (r *RBush) split(n *Node) {
 	for _, c := range(newNode.children) {
 		c.parentNode = &newNode
 	}
-	n.bbox = n.partialBBox(0, len(n.children))
-	newNode.bbox = newNode.partialBBox(0, len(newNode.children))
+	n.BBox = n.partialBBox(0, len(n.children))
+	newNode.BBox = newNode.partialBBox(0, len(newNode.children))
 	// not root
 	if n.parentNode != nil {
 		n.parentNode.children = append(n.parentNode.children, &newNode)
@@ -348,8 +348,8 @@ func (r *RBush) choseSubtree(n *Node) *Node {
 		minArea := math.MaxFloat64
 		minEnlargement := math.MaxFloat64
 		for _, child := range chosenNode.children {
-			area := child.bbox.area()
-			enlargement := n.bbox.enlargedArea(child.bbox) - area
+			area := child.BBox.area()
+			enlargement := n.BBox.enlargedArea(child.BBox) - area
 
 			// find entry with minimum enlargment
 			if enlargement < minEnlargement {
@@ -384,7 +384,7 @@ func (n *Node) computeBBoxDownwards() BBox {
 		}
 		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
 		for i:= 1; i < len(n.children); i ++ {
-			bbox = bbox.extend(n.children[i].bbox)
+			bbox = bbox.extend(n.children[i].BBox)
 		}
 	} else {
 		bbox = n.children[0].computeBBoxDownwards()
@@ -392,15 +392,15 @@ func (n *Node) computeBBoxDownwards() BBox {
 			bbox = bbox.extend(n.children[i].computeBBoxDownwards())
 		}
 	}
-	n.bbox = bbox
+	n.BBox = bbox
 	return bbox
 }
 
 // compute bbox of part of the childre
 func (n *Node) partialBBox (start, end int) BBox {
-	bbox := n.children[start].bbox
+	bbox := n.children[start].BBox
 	for i := start + 1; i < end; i++ {
-		bbox = bbox.extend(n.children[i].bbox)
+		bbox = bbox.extend(n.children[i].BBox)
 	}
 	return bbox
 }

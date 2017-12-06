@@ -3,7 +3,7 @@ package go_rbush
 import "math"
 
 type BBox struct {
-	MinX, MaxX, MinY, MaxY float64
+	MinX, MinY, MaxX, MaxY float64
 }
 
 func (b BBox) area() float64 {
