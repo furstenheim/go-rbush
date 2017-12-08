@@ -12,7 +12,8 @@ import (
 const (
 	MAX_ENTRIES       = 9
 	MIN_ENTRIES       = 4
-	NUMBER_OF_SORTERS = 4
+	NUMBER_OF_SORTERS = 1
+	MAX_HEIGHT_TO_SPLIT = 5 // When creating the index we'll split the task into a new goroutine until we reach this height
 )
 
 type Interface interface {
@@ -141,87 +142,76 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 
 // points is assumed to be ordered
 func (r *RBush) build(points Interface) *Node {
-	ch := make(chan *Node)
-	readCh := make(chan *Node, NUMBER_OF_SORTERS)
-	exitCh := make(chan int, NUMBER_OF_SORTERS)
-	for i := 0; i < NUMBER_OF_SORTERS; i++ {
-		go func(ch, readCh chan *Node, exitCh chan int) {
-			for true {
-				select {
-				case n := <-ch:
-					N := n.points.Len()
-					// target number of root entries to maximize storage utilization
-					var M float64
-					if N <= MAX_ENTRIES { // Leaf node
-						n.setLeafNode(n.points)
-						readCh <- n
-						continue
-					}
-					// sort on x, then split in equal size buckets and sort in y
-					// root node is assumed sorted so there is no need to sort
-					// first node inserted
-					if n.height == -1 {
-						// This is the target height
-						n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(MAX_ENTRIES)))
-					} else {
-						sortX := xSorter{n: n, start: 0, end: n.points.Len()}
-						sort.Sort(sortX)
-					}
-					M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, float64(n.height-1))))
 
-					N2 := int(math.Ceil(float64(N) / M))
-					N1 := N2 * int(math.Ceil(math.Sqrt(M)))
-					for i := 0; i <= n.points.Len(); i += N1 {
-						right2 := minInt(i+N-1, n.points.Len())
-						sortY := ySorter{n: n, start: i, end: right2}
-						sort.Sort(sortY)
-						for j := i; j <= right2; j += N2 {
-							right3 := minInt(j+N2-1, right2)
-							child := Node{
-								points:     n.points.Slice(j, right3),
-								height:     n.height - 1,
-								parentNode: n,
-							}
-							n.children = append(n.children, &child)
-						}
-					}
-					// remove reference to interface, we only need it for points
-					n.points = nil
-					readCh <- n
-
-				case <-exitCh:
-					return
-				}
-			}
-
-		}(ch, readCh, exitCh)
-	}
-
+	confirmCh := make(chan int, 1)
 	rootNode := &Node{height: -1, points: points}
-	ch <- rootNode
 	remainingNodes := 1
 
+	go r.buildNodeDownwards(rootNode, confirmCh, true)
 	for remainingNodes > 0 {
-		select {
-		case n := <-readCh:
-			// runtime.Breakpoint()
-			remainingNodes -= 1
-			if n.isLeaf {
-				continue // children of leaf nodes are just points so we should not try to create nodes out of there
-			}
-			for _, c := range n.children {
-				// we need to compute children
-				remainingNodes += 1
-				ch <- c
-			}
-			// else we have already computed
-		}
+		i := <-confirmCh
+		remainingNodes += i
 	}
-	for i := 0; i < NUMBER_OF_SORTERS; i++ {
-		exitCh <- 1
-	}
+	close(confirmCh)
 	rootNode.computeBBoxDownwards()
 	return rootNode
+}
+
+func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync bool) {
+	if isCalledAsync {
+		defer func () {
+			confirmCh <- -1
+		}()
+	}
+
+	N := n.points.Len()
+	// target number of root entries to maximize storage utilization
+	var M float64
+	if N <= MAX_ENTRIES { // Leaf node
+		n.setLeafNode(n.points)
+		return
+	}
+	// sort on x, then split in equal size buckets and sort in y
+	// root node is assumed sorted so there is no need to sort
+	// first node inserted
+	if n.height == -1 {
+		// This is the target height
+		n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(MAX_ENTRIES)))
+	} else {
+		sortX := xSorter{n: n, start: 0, end: n.points.Len()}
+		sort.Sort(sortX)
+	}
+	M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, float64(n.height-1))))
+
+	N2 := int(math.Ceil(float64(N) / M))
+	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
+	for i := 0; i <= n.points.Len(); i += N1 {
+		right2 := minInt(i+N-1, n.points.Len())
+		sortY := ySorter{n: n, start: i, end: right2}
+		sort.Sort(sortY)
+		for j := i; j <= right2; j += N2 {
+			right3 := minInt(j+N2-1, right2)
+			child := Node{
+				points:     n.points.Slice(j, right3),
+				height:     n.height - 1,
+				parentNode: n,
+			}
+			n.children = append(n.children, &child)
+			// remove reference to interface, we only need it for points
+
+		}
+	}
+	n.points = nil
+	// compute children
+	for _, c := range(n.children) {
+		// Only launch a goroutine for big height. we don't want a goroutine to sort 4 points
+		if (n.height > MAX_HEIGHT_TO_SPLIT) {
+			confirmCh <- 1
+			go r.buildNodeDownwards(c, confirmCh, true)
+		} else {
+			r.buildNodeDownwards(c, confirmCh, false)
+		}
+	}
 }
 
 func (r *RBush) insertElement(p Interface) {
