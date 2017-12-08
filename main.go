@@ -101,6 +101,7 @@ func (r *RBush) Collides(b BBox) bool {
 // Returns all end points inside node
 func (n *Node) flattenDownwards() []*Node {
 	var node *Node
+	// runtime.Breakpoint()
 	result := make([]*Node, 0, len(n.children))
 	nodesToSearch := []*Node{n}
 	for len(nodesToSearch) != 0 {
@@ -185,8 +186,9 @@ func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync b
 
 	N2 := int(math.Ceil(float64(N) / M))
 	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
+	// runtime.Breakpoint()
 	for i := 0; i <= n.points.Len(); i += N1 {
-		right2 := minInt(i+N-1, n.points.Len())
+		right2 := minInt(i+N1-1, n.points.Len())
 		sortY := ySorter{n: n, start: i, end: right2}
 		sort.Sort(sortY)
 		for j := i; j <= right2; j += N2 {

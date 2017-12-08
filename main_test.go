@@ -95,13 +95,15 @@ func TestRBush_Load(t *testing.T) {
 		b := [][4]float64(n.points.(bboxes))
 		recoveredPoints = append(recoveredPoints, b...)
 	}
+
+	sort.Sort(bboxes(recoveredPoints))
+	sort.Sort(bboxes(originalData))
 	assertEqual(t, len(recoveredPoints), len(originalData), fmt.Sprintf("We should get the same amout of points, %v %v", len(recoveredPoints), len(originalData)))
 	if (len(recoveredPoints) != len(originalData)) {
 		fmt.Println(recoveredPoints)
+		fmt.Println(originalData)
 		return
 	}
-	sort.Sort(bboxes(recoveredPoints))
-	sort.Sort(bboxes(originalData))
 	fmt.Println(len(originalData), len(recoveredPoints))
 	for i, _ := range recoveredPoints {
 		assertEqual(t, originalData[i], recoveredPoints[i], "")
