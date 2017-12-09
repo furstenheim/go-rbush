@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MIN_ENTRIES       = 4
+	MIN_ENTRIES         = 4
 	MAX_HEIGHT_TO_SPLIT = 5 // When creating the index we'll split the task into a new goroutine until we reach this height
 )
 
@@ -20,7 +20,6 @@ type Interface interface {
 	Swap(i, j int)                            // Swap elements with indexes i and j
 	Slice(i, j int) Interface                 //Slice the interface between two indices
 }
-
 
 type Options struct {
 	MAX_ENTRIES int
@@ -43,7 +42,7 @@ func NewWithOptions(options Options) *RBush {
 }
 
 type RBush struct {
-	options Options
+	options  Options
 	rootNode *Node
 }
 
@@ -139,18 +138,18 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
 	if r.rootNode == nil {
-	r.rootNode = node
+		r.rootNode = node
 	} else if r.rootNode.height == node.height {
-	r.splitRoot(node)
+		r.splitRoot(node)
 	} else {
-	if r.rootNode.height < node.height {
-	// swap nodes and insert smaller one
-	tmpNode := r.rootNode
-	r.rootNode = node
-	node = tmpNode
-	}
-	// insert small tree into big tree
-	r.insertNode(node)
+		if r.rootNode.height < node.height {
+			// swap nodes and insert smaller one
+			tmpNode := r.rootNode
+			r.rootNode = node
+			node = tmpNode
+		}
+		// insert small tree into big tree
+		r.insertNode(node)
 	}
 
 	return r
@@ -173,9 +172,9 @@ func (r *RBush) build(points Interface) *Node {
 	return rootNode
 }
 
-func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync bool) {
+func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bool) {
 	if isCalledAsync {
-		defer func () {
+		defer func() {
 			confirmCh <- -1
 		}()
 	}
@@ -220,9 +219,9 @@ func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync b
 	}
 	n.points = nil
 	// compute children
-	for _, c := range(n.children) {
+	for _, c := range n.children {
 		// Only launch a goroutine for big height. we don't want a goroutine to sort 4 points
-		if (n.height > MAX_HEIGHT_TO_SPLIT) {
+		if n.height > MAX_HEIGHT_TO_SPLIT {
 			confirmCh <- 1
 			go r.buildNodeDownwards(c, confirmCh, true)
 		} else {
