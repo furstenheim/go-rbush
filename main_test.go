@@ -108,6 +108,42 @@ func TestRBush_Load(t *testing.T) {
 		assertEqual(t, originalData[i], recoveredPoints[i], "")
 	}
 }
+
+func TestRBush_Loading_little_data(t *testing.T) {
+	data := getDataExample()
+	// It is important to use another slice so they don't share the same (we are modifying the underlying array)
+	data2 := getDataExample()
+	// In the original test they compare the trees themselves. Maybe we could do the same walking the tree
+	tree1 := New().
+		Load(data).
+		Load(data2[0: 3])
+	tree2 := New().
+		Load(data).
+		Load(data2[0: 1]).
+		Load(data2[1: 2]).
+		Load(data2[2: 3])
+	childNodes1 := tree1.rootNode.flattenDownwards()
+	childNodes2 := tree2.rootNode.flattenDownwards()
+	recoveredPoints1 := make([][4]float64, 0, len(childNodes1))
+	recoveredPoints2 := make([][4]float64, 0, len(childNodes2))
+	for _, n := range(childNodes1) {
+		b := [][4]float64(n.points.(bboxes))
+		recoveredPoints1 = append(recoveredPoints1, b...)
+	}
+	for _, n := range(childNodes2) {
+		b := [][4]float64(n.points.(bboxes))
+		recoveredPoints2 = append(recoveredPoints2, b...)
+	}
+	sort.Sort(bboxes(recoveredPoints1))
+	sort.Sort(bboxes(recoveredPoints2))
+	assertEqual(t, len(recoveredPoints1), len(recoveredPoints2), fmt.Sprintf("We should get the same amout of points, %v %v", len(recoveredPoints1), len(recoveredPoints2)))
+	if (len(recoveredPoints1) != len(recoveredPoints2)) {
+		return
+	}
+	for i, _ := range recoveredPoints1 {
+		assertEqual(t, recoveredPoints1[i], recoveredPoints2[i], "")
+	}
+}
 func someData(n int) coordinates {
 	data := make([][2]float64, 0, n)
 	for i := 0; i < n; i++ {

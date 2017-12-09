@@ -232,7 +232,7 @@ func (r *RBush) insertElement(p Interface) {
 }
 
 func (r *RBush) insertNode(n *Node) {
-	chosenNode := r.choseSubtree(n)
+	chosenNode := r.chooseSubtree(n)
 	// TODO probably do something in the case : n.isLeaf, chosenNode.isLeaf
 	n.parentNode = chosenNode
 	chosenNode.children = append(chosenNode.children, n)
@@ -324,9 +324,11 @@ func (n *Node) chooseSplitIndex() int {
 }
 
 // find optimal node searching for the node that grows less in area.
-func (r *RBush) choseSubtree(n *Node) *Node {
-	height := r.rootNode.height - n.height
-	if height < 0 {
+func (r *RBush) chooseSubtree(n *Node) *Node {
+	// -1 because we want the node to be at the same level
+	// n.height same as rootNode.height is not considered here since we would have called split root
+	requiredDepth := r.rootNode.height - n.height - 1
+	if requiredDepth < 0 {
 		// Most definitely an error in the implementation
 		log.Fatal("We are inserting a big tree into a smaller tree.")
 	}
@@ -334,7 +336,7 @@ func (r *RBush) choseSubtree(n *Node) *Node {
 	chosenNode := r.rootNode
 	for true {
 		// We always insert small tree into big tree so it cannot happen that we insert a non point into a leaf
-		if chosenNode.isLeaf || depth == height {
+		if chosenNode.isLeaf || depth == requiredDepth {
 			break
 		}
 		minArea := math.MaxFloat64
