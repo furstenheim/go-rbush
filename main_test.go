@@ -104,7 +104,6 @@ func TestRBush_Load(t *testing.T) {
 		fmt.Println(originalData)
 		return
 	}
-	fmt.Println(len(originalData), len(recoveredPoints))
 	for i, _ := range recoveredPoints {
 		assertEqual(t, originalData[i], recoveredPoints[i], "")
 	}

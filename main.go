@@ -187,12 +187,12 @@ func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync b
 	N2 := int(math.Ceil(float64(N) / M))
 	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
 	// runtime.Breakpoint()
-	for i := 0; i <= n.points.Len(); i += N1 {
-		right2 := minInt(i+N1-1, n.points.Len())
+	for i := 0; i < n.points.Len(); i += N1 {
+		right2 := minInt(i+N1, n.points.Len())
 		sortY := ySorter{n: n, start: i, end: right2}
 		sort.Sort(sortY)
-		for j := i; j <= right2; j += N2 {
-			right3 := minInt(j+N2-1, right2)
+		for j := i; j < right2; j += N2 {
+			right3 := minInt(j+N2, right2)
 			child := Node{
 				points:     n.points.Slice(j, right3),
 				height:     n.height - 1,
