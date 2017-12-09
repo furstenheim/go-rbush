@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"math"
 )
 
 func TestRBush_Load_9_max_entries_by_default(t *testing.T) {
@@ -122,20 +123,9 @@ func TestRBush_Loading_little_data(t *testing.T) {
 		Load(data2[0: 1]).
 		Load(data2[1: 2]).
 		Load(data2[2: 3])
-	childNodes1 := tree1.rootNode.flattenDownwards()
-	childNodes2 := tree2.rootNode.flattenDownwards()
-	recoveredPoints1 := make([][4]float64, 0, len(childNodes1))
-	recoveredPoints2 := make([][4]float64, 0, len(childNodes2))
-	for _, n := range(childNodes1) {
-		b := [][4]float64(n.points.(bboxes))
-		recoveredPoints1 = append(recoveredPoints1, b...)
-	}
-	for _, n := range(childNodes2) {
-		b := [][4]float64(n.points.(bboxes))
-		recoveredPoints2 = append(recoveredPoints2, b...)
-	}
-	sort.Sort(bboxes(recoveredPoints1))
-	sort.Sort(bboxes(recoveredPoints2))
+	recoveredPoints1 := getTreePointsAsCoordinates(tree1.rootNode)
+	recoveredPoints2 := getTreePointsAsCoordinates(tree2.rootNode)
+
 	assertEqual(t, len(recoveredPoints1), len(recoveredPoints2), fmt.Sprintf("We should get the same amout of points, %v %v", len(recoveredPoints1), len(recoveredPoints2)))
 	if (len(recoveredPoints1) != len(recoveredPoints2)) {
 		return
@@ -143,6 +133,64 @@ func TestRBush_Loading_little_data(t *testing.T) {
 	for i, _ := range recoveredPoints1 {
 		assertEqual(t, recoveredPoints1[i], recoveredPoints2[i], "")
 	}
+}
+
+func TestRBush_LoadNothing(t *testing.T) {
+	tree1 := New().Load(make(coordinates, 0))
+	a := (*Node)(nil)
+	assertEqual(t, tree1.rootNode, a, "")
+}
+
+func TestRBush_LoadEmptyData(t *testing.T) {
+	data := getEmptyDataExample()
+	tree := NewWithOptions(Options{
+		MAX_ENTRIES: 4,
+	}).Load(data)
+	assertEqual(t, tree.rootNode.height, 2, "")
+	recoveredPoints := getTreePointsAsCoordinates(tree.rootNode)
+	assertEqual(t, len(recoveredPoints), len(data),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(data), len(recoveredPoints)))
+	if (len(recoveredPoints) != len(data)) {
+		return
+	}
+	for i, _ := range recoveredPoints {
+		assertEqual(t, recoveredPoints[i], data[i], "")
+	}
+}
+
+func TestRBush_LoadEmptyDataElementByElement(t *testing.T) {
+	data := getEmptyDataExample()
+	tree := NewWithOptions(Options{
+		MAX_ENTRIES: 4,
+	})
+	for i, _ := range(data) {
+		tree.Load(data[i: i+1])
+	}
+
+	assertEqual(t, tree.rootNode.height, 2, "")
+	recoveredPoints := getTreePointsAsCoordinates(tree.rootNode)
+	assertEqual(t, len(recoveredPoints), len(data),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(data), len(recoveredPoints)))
+	if (len(recoveredPoints) != len(data)) {
+		fmt.Println(data)
+		fmt.Println(recoveredPoints)
+		return
+	}
+	for i, _ := range recoveredPoints {
+		assertEqual(t, recoveredPoints[i], data[i], "")
+	}
+}
+
+func getTreePointsAsCoordinates (n *Node) [][4]float64 {
+	childNodes := n.flattenDownwards()
+	recoveredPoints := make([][4]float64, 0, len(childNodes))
+	for _, c := range(childNodes) {
+		b := [][4]float64(c.points.(bboxes))
+		recoveredPoints = append(recoveredPoints, b...)
+	}
+	sort.Sort(bboxes(recoveredPoints))
+	return recoveredPoints
+
 }
 func someData(n int) coordinates {
 	data := make([][2]float64, 0, n)
@@ -212,4 +260,10 @@ func getDataExample () bboxes {
 		{0,50,0,50},{10,60,10,60},{20,70,20,70},{25,50,25,50},{35,60,35,60},{45,70,45,70},{0,75,0,75},{10,85,10,85},
 		{20,95,20,95},{25,75,25,75},{35,85,35,85},{45,95,45,95},{50,50,50,50},{60,60,60,60},{70,70,70,70},{75,50,75,50},
 		{85,60,85,60},{95,70,95,70},{50,75,50,75},{60,85,60,85},{70,95,70,95},{75,75,75,75},{85,85,85,85},{95,95,95,95}}
+}
+
+func getEmptyDataExample () bboxes {
+	return bboxes{{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)},{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)},
+		{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)},{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)},
+		{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)},{math.Inf(-1), math.Inf(-1), math.Inf(+1), math.Inf(+1)}}
 }

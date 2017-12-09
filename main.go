@@ -10,9 +10,7 @@ import (
 )
 
 const (
-	MAX_ENTRIES       = 9
 	MIN_ENTRIES       = 4
-	NUMBER_OF_SORTERS = 1
 	MAX_HEIGHT_TO_SPLIT = 5 // When creating the index we'll split the task into a new goroutine until we reach this height
 )
 
@@ -23,17 +21,29 @@ type Interface interface {
 	Slice(i, j int) Interface                 //Slice the interface between two indices
 }
 
-// A point basically returns coordinates
-type Point interface {
-	GetCoordinates() (float64, float64)
+
+type Options struct {
+	MAX_ENTRIES int
 }
 
 // Create an RBush index from an array of points
 func New() *RBush {
-	return &RBush{}
+	defaultOptions := Options{
+		MAX_ENTRIES: 9,
+	}
+	return &RBush{
+		options: defaultOptions,
+	}
+}
+
+func NewWithOptions(options Options) *RBush {
+	return &RBush{
+		options: options,
+	}
 }
 
 type RBush struct {
+	options Options
 	rootNode *Node
 }
 
@@ -122,22 +132,27 @@ func (r *RBush) Load(points Interface) *RBush {
 }
 
 func (r *RBush) LoadSortedArray(points Interface) *RBush {
+	if points.Len() == 0 {
+		return r
+	}
+
 	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
 	if r.rootNode == nil {
-		r.rootNode = node
+	r.rootNode = node
 	} else if r.rootNode.height == node.height {
-		r.splitRoot(node)
+	r.splitRoot(node)
 	} else {
-		if r.rootNode.height < node.height {
-			// swap nodes and insert smaller one
-			tmpNode := r.rootNode
-			r.rootNode = node
-			node = tmpNode
-		}
-		// insert small tree into big tree
-		r.insertNode(node)
+	if r.rootNode.height < node.height {
+	// swap nodes and insert smaller one
+	tmpNode := r.rootNode
+	r.rootNode = node
+	node = tmpNode
 	}
+	// insert small tree into big tree
+	r.insertNode(node)
+	}
+
 	return r
 }
 
@@ -168,7 +183,7 @@ func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync b
 	N := n.points.Len()
 	// target number of root entries to maximize storage utilization
 	var M float64
-	if N <= MAX_ENTRIES { // Leaf node
+	if N <= r.options.MAX_ENTRIES { // Leaf node
 		n.setLeafNode(n.points)
 		return
 	}
@@ -177,12 +192,12 @@ func (r *RBush) buildNodeDownwards (n *Node, confirmCh chan int, isCalledAsync b
 	// first node inserted
 	if n.height == -1 {
 		// This is the target height
-		n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(MAX_ENTRIES)))
+		n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(float64(r.options.MAX_ENTRIES))))
 	} else {
 		sortX := xSorter{n: n, start: 0, end: n.points.Len()}
 		sort.Sort(sortX)
 	}
-	M = math.Ceil(float64(N) / float64(math.Pow(MAX_ENTRIES, float64(n.height-1))))
+	M = math.Ceil(float64(N) / float64(math.Pow(float64(r.options.MAX_ENTRIES), float64(n.height-1))))
 
 	N2 := int(math.Ceil(float64(N) / M))
 	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
@@ -232,6 +247,7 @@ func (r *RBush) insertElement(p Interface) {
 }
 
 func (r *RBush) insertNode(n *Node) {
+	// insert small tree into big tree
 	chosenNode := r.chooseSubtree(n)
 	// TODO probably do something in the case : n.isLeaf, chosenNode.isLeaf
 	n.parentNode = chosenNode
@@ -240,7 +256,7 @@ func (r *RBush) insertNode(n *Node) {
 
 	// split on node overflow, propagate upwards
 	for iterNode := chosenNode; iterNode != nil; iterNode = iterNode.parentNode {
-		if len(iterNode.children) > MAX_ENTRIES {
+		if len(iterNode.children) > r.options.MAX_ENTRIES {
 			r.split(iterNode)
 		} else {
 			iterNode.BBox = iterNode.BBox.extend(n.BBox)
@@ -339,8 +355,8 @@ func (r *RBush) chooseSubtree(n *Node) *Node {
 		if chosenNode.isLeaf || depth == requiredDepth {
 			break
 		}
-		minArea := math.MaxFloat64
-		minEnlargement := math.MaxFloat64
+		minArea := math.Inf(+1)
+		minEnlargement := math.Inf(+1)
 		for _, child := range chosenNode.children {
 			area := child.BBox.area()
 			enlargement := n.BBox.enlargedArea(child.BBox) - area
@@ -371,10 +387,10 @@ func (n *Node) computeBBoxDownwards() BBox {
 	var bbox BBox
 	if n.isLeaf {
 		bbox = BBox{
-			MinX: math.MaxFloat64,
-			MaxX: -math.MaxFloat64,
-			MinY: math.MaxFloat64,
-			MaxY: -math.MaxFloat64,
+			MinX: math.Inf(+1),
+			MaxX: math.Inf(-1),
+			MinY: math.Inf(+1),
+			MaxY: math.Inf(-1),
 		}
 		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
 		for i := 1; i < len(n.children); i++ {
