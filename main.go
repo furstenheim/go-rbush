@@ -405,11 +405,12 @@ func (n *Node) computeBBoxDownwards() BBox {
 			MaxY: math.Inf(-1),
 		}
 		// This bounded boxes are computed when creating the nodes, they only contain one point so there is no doubt
-		for i := 1; i < len(n.children); i++ {
+		for i := 0; i < len(n.children); i++ {
 			bbox = bbox.extend(n.children[i].BBox)
 		}
 	} else {
 		bbox = n.children[0].computeBBoxDownwards()
+
 		for i := 1; i < len(n.children); i++ {
 			bbox = bbox.extend(n.children[i].computeBBoxDownwards())
 		}

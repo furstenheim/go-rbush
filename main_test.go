@@ -231,6 +231,42 @@ func TestRBush_LoadProperlyManagesSmallerAndBiggerTrees(t *testing.T) {
 	}
 }
 
+func TestRBush_SearchInBBox(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	nodes := tree1.Search(BBox{40, 20, 80, 70})
+	result := make([]BBox, len(nodes))
+	for i, n := range nodes {
+		result[i] = n.BBox
+	}
+	expected := []BBox{{70,20,70,20},{75,25,75,25},{45,45,45,45},{50,50,50,50},{60,60,60,60},{70,70,70,70},
+		{45,20,45,20},{45,70,45,70},{75,50,75,50},{50,25,50,25},{60,35,60,35},{70,45,70,45}}
+
+	sorterFactory := func(a []BBox) func(i, j int) bool {
+		return func(i, j int) bool {
+			if a[i].MinX != a[j].MinX {
+				return a[i].MinX > a[j].MinX
+			}
+			return a[i].MinY > a[j].MinY
+		}
+	}
+
+	sort.Slice(expected, sorterFactory(expected))
+	sort.Slice(result, sorterFactory(result))
+
+	assertEqual(t, len(result), len(expected),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(result), len(expected)))
+	if len(result) != len(expected) {
+		fmt.Println(result)
+		fmt.Println(expected)
+		return
+	}
+	for i, _ := range result {
+		assertEqual(t, result[i], expected[i], "")
+	}
+}
+
 func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	childNodes := n.flattenDownwards()
 	recoveredPoints := make([][4]float64, 0, len(childNodes))
