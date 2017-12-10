@@ -30,15 +30,15 @@ func New() *RBush {
 	defaultOptions := Options{
 		MAX_ENTRIES: 9,
 	}
-	return &RBush{
-		options: defaultOptions,
-	}
+	return NewWithOptions(defaultOptions)
 }
 
 func NewWithOptions(options Options) *RBush {
-	return &RBush{
+	r := &RBush{
 		options: options,
 	}
+	r.initRootNode()
+	return r
 }
 
 type RBush struct {
@@ -137,7 +137,7 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 
 	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
-	if r.rootNode == nil {
+	if len(r.rootNode.children) == 0 {
 		r.rootNode = node
 	} else if r.rootNode.height == node.height {
 		r.splitRoot(node)
@@ -230,7 +230,7 @@ func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bo
 	}
 }
 
-func (r *RBush) insertElement(p Interface) {
+func (r *RBush) InsertElement(p Interface) {
 	x1, y1, x2, y2 := p.GetBBoxAt(0)
 	node := Node{
 		points: p,
@@ -307,7 +307,7 @@ func (r *RBush) split(n *Node) {
 	n.chooseSplitAxis()
 	i := n.chooseSplitIndex()
 	newNode := Node{
-		children:   n.children[i : len(n.children)-1],
+		children:   n.children[i : len(n.children)],
 		height:     n.height,
 		parentNode: n.parentNode,
 		isLeaf:     n.isLeaf,
@@ -356,6 +356,7 @@ func (r *RBush) chooseSubtree(n *Node) *Node {
 		}
 		minArea := math.Inf(+1)
 		minEnlargement := math.Inf(+1)
+		var targetNode *Node
 		for _, child := range chosenNode.children {
 			area := child.BBox.area()
 			enlargement := n.BBox.enlargedArea(child.BBox) - area
@@ -366,13 +367,19 @@ func (r *RBush) chooseSubtree(n *Node) *Node {
 				if area < minArea {
 					minArea = area
 				}
-				chosenNode = child
+				targetNode = child
 			} else if enlargement == minEnlargement {
 				if area < minArea {
 					minArea = area
-					chosenNode = child
+					targetNode = child
 				}
 			}
+		}
+		if targetNode != nil {
+			chosenNode = targetNode
+		} else {
+			// in case we cannot choose among all children (for example if area is infinity then we chose first child)
+			chosenNode = chosenNode.children[0]
 		}
 		depth++
 	}
@@ -414,8 +421,22 @@ func (n *Node) partialBBox(start, end int) BBox {
 	return bbox
 }
 
-func (r RBush) Clear() {
+func (r * RBush) Clear() {
 
+}
+
+func (r * RBush) initRootNode () {
+	r.rootNode = &Node{
+		children: []*Node{},
+		BBox: BBox{
+			MinX: math.Inf(1),
+			MaxX: math.Inf(-1),
+			MinY: math.Inf(1),
+			MaxY: math.Inf(-1),
+		},
+		isLeaf: true,
+		height: 1,
+	}
 }
 
 func (r RBush) Remove() {

@@ -137,8 +137,7 @@ func TestRBush_Loading_little_data(t *testing.T) {
 
 func TestRBush_LoadNothing(t *testing.T) {
 	tree1 := New().Load(make(coordinates, 0))
-	a := (*Node)(nil)
-	assertEqual(t, tree1.rootNode, a, "")
+	assertEqual(t, len(tree1.rootNode.children), 0, "Root has not children on init mode")
 }
 
 func TestRBush_LoadEmptyData(t *testing.T) {
@@ -164,7 +163,7 @@ func TestRBush_LoadEmptyDataElementByElement(t *testing.T) {
 		MAX_ENTRIES: 4,
 	})
 	for i, _ := range data {
-		tree.Load(data[i : i+1])
+		tree.InsertElement(data[i : i+1])
 	}
 
 	assertEqual(t, tree.rootNode.height, 2, "")
