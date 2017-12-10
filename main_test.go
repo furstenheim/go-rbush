@@ -114,15 +114,16 @@ func TestRBush_Loading_little_data(t *testing.T) {
 	data := getDataExample()
 	// It is important to use another slice so they don't share the same (we are modifying the underlying array)
 	data2 := getDataExample()
+	data3 := getDataExample()
 	// In the original test they compare the trees themselves. Maybe we could do the same walking the tree
 	tree1 := New().
 		Load(data).
 		Load(data2[0:3])
 	tree2 := New().
 		Load(data).
-		Load(data2[0:1]).
-		Load(data2[1:2]).
-		Load(data2[2:3])
+		Load(data3[0:1]).
+		Load(data3[1:2]).
+		Load(data3[2:3])
 	recoveredPoints1 := getTreePointsAsCoordinates(tree1.rootNode)
 	recoveredPoints2 := getTreePointsAsCoordinates(tree2.rootNode)
 

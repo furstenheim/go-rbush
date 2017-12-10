@@ -135,6 +135,12 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 		return r
 	}
 
+	if (points.Len() < MIN_ENTRIES) {
+		for i := 0; i < points.Len(); i ++ {
+			r.InsertElement(points.Slice(i, i + 1))
+		}
+		return r
+	}
 	// TODO points.Len < MIN_ENTRIEs
 	node := r.build(points)
 	if len(r.rootNode.children) == 0 {
