@@ -8,9 +8,9 @@ import (
 )
 
 func TestRBush_Load_9_max_entries_by_default(t *testing.T) {
-	r := New().Load(someData(9))
+	r := New().Load(getSomeData(9))
 	assertEqual(t, r.rootNode.height, 1, "")
-	r = New().Load(someData(10))
+	r = New().Load(getSomeData(10))
 	assertEqual(t, r.rootNode.height, 2, "")
 }
 
@@ -181,6 +181,56 @@ func TestRBush_LoadEmptyDataElementByElement(t *testing.T) {
 	}
 }
 
+func TestRBush_LoadSplitsTreeIfSameHeight(t *testing.T) {
+	data := getDataExample()
+	data2 := getDataExample()
+	tree := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data).
+		Load(data2)
+	assertEqual(t, tree.rootNode.height, 4, "")
+	recoveredPoints := getTreePointsAsCoordinates(tree.rootNode)
+	// copy to avoid posssible issues with sharing slice
+	expected := append(append([][4]float64{}, data...), data2...)
+	sort.Sort(bboxes(expected))
+	assertEqual(t, len(recoveredPoints), len(expected),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(expected), len(recoveredPoints)))
+	if len(recoveredPoints) != len(expected) {
+		fmt.Println(expected)
+		fmt.Println(recoveredPoints)
+		return
+	}
+	for i, _ := range recoveredPoints {
+		assertEqual(t, recoveredPoints[i], expected[i], "")
+	}
+}
+
+func TestRBush_LoadProperlyManagesSmallerAndBiggerTrees(t *testing.T) {
+	smallData1 := getSomeDataBBoxes(9)
+	smallData2 := getSomeDataBBoxes(9)
+	data1 := getDataExample()
+	data2 := getDataExample()
+
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1).
+		Load(smallData1)
+	tree2 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data2).
+		Load(smallData2)
+
+	assertEqual(t, tree1.rootNode.height, tree2.rootNode.height, "")
+	recoveredPoints1 := getTreePointsAsCoordinates(tree1.rootNode)
+	recoveredPoints2 := getTreePointsAsCoordinates(tree2.rootNode)
+
+	assertEqual(t, len(recoveredPoints1), len(recoveredPoints2),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(recoveredPoints1), len(recoveredPoints2)))
+	if len(recoveredPoints1) != len(recoveredPoints2) {
+		return
+	}
+	for i, _ := range recoveredPoints1 {
+		assertEqual(t, recoveredPoints1[i], recoveredPoints2[i], "")
+	}
+}
+
 func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	childNodes := n.flattenDownwards()
 	recoveredPoints := make([][4]float64, 0, len(childNodes))
@@ -192,12 +242,19 @@ func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	return recoveredPoints
 
 }
-func someData(n int) coordinates {
+func getSomeData(n int) coordinates {
 	data := make([][2]float64, 0, n)
 	for i := 0; i < n; i++ {
 		data = append(data, [2]float64{float64(i), float64(i)})
 	}
 	return coordinates(data)
+}
+func getSomeDataBBoxes(n int) bboxes {
+	data := make([][4]float64, 0, n)
+	for i := 0; i < n; i++ {
+		data = append(data, [4]float64{float64(i), float64(i),float64(i), float64(i)})
+	}
+	return bboxes(data)
 }
 
 type coordinates [][2]float64
