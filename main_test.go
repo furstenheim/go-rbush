@@ -267,6 +267,70 @@ func TestRBush_SearchInBBox(t *testing.T) {
 	}
 }
 
+func TestRBush_Collides(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	result := tree1.Collides(BBox{40, 20, 80, 70})
+	assertEqual(t, result, true, "")
+}
+
+func TestRBush_EmptySearch(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	result := tree1.Search(BBox{200, 200, 210, 210})
+	assertEqual(t, len(result), 0, "")
+}
+
+func TestRBush_CollidesFalse(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	result := tree1.Collides(BBox{200, 200, 210, 210})
+	assertEqual(t, result, false, "")
+}
+
+func TestRBush_SearchInBBoxGetAll(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	nodes := tree1.Search(BBox{0, 0, 100, 100})
+	result := make([]BBox, len(nodes))
+	for i, n := range nodes {
+		result[i] = n.BBox
+	}
+	expected := make([]BBox, len(data1))
+	for i, d := range(data1) {
+		expected[i] = BBox{d[0], d[1], d[2], d[3]}
+	}
+	sorterFactory := func(a []BBox) func(i, j int) bool {
+		return func(i, j int) bool {
+			if a[i].MinX != a[j].MinX {
+				return a[i].MinX > a[j].MinX
+			}
+			return a[i].MinY > a[j].MinY
+		}
+	}
+
+	sort.Slice(expected, sorterFactory(expected))
+	sort.Slice(result, sorterFactory(result))
+
+	assertEqual(t, len(result), len(expected),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(result), len(expected)))
+	if len(result) != len(expected) {
+		fmt.Println(result)
+		fmt.Println(expected)
+		return
+	}
+	for i, _ := range result {
+		assertEqual(t, result[i], expected[i], "")
+	}
+}
+
+
+
+
 func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	childNodes := n.flattenDownwards()
 	recoveredPoints := make([][4]float64, 0, len(childNodes))

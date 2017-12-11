@@ -90,7 +90,7 @@ func (r *RBush) Collides(b BBox) bool {
 		return false
 	}
 	nodesToSearch := make([]*Node, 0, 10)
-	nodesToSearch[0] = node
+	nodesToSearch = append(nodesToSearch, node)
 	for len(nodesToSearch) != 0 {
 		// pop first item
 		node, nodesToSearch = nodesToSearch[0], nodesToSearch[1:]
