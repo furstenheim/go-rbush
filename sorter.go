@@ -64,14 +64,14 @@ func FloydRivestSelect (array sort.Interface, k, left, right int) {
 			array.Swap(i, j)
 			i++
 			j--
-			for array.Less(i, pointIndex) {
+			for i < array.Len() && array.Less(i, pointIndex) {
 				i++
 			}
-			for array.Less(pointIndex, j) {
+			for j >= 0 && array.Less(pointIndex, j) {
 				j--
 			}
 		}
-		if array.Less(left, pointIndex) && array.Less(pointIndex, left) {
+		if !array.Less(left, pointIndex) && !array.Less(pointIndex, left) {
 			array.Swap(left, j)
 		} else {
 			j++

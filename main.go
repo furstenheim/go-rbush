@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 	"runtime"
-	"sort"
 )
 
 const (
@@ -125,13 +124,14 @@ func (n *Node) flattenDownwards() []*Node {
 }
 
 func (r *RBush) Load(points Interface) *RBush {
-	sort.Sort(pointSorter{i: points})
-
-	r.LoadSortedArray(points)
-	return r
+	return r.load(points, false)
 }
 
 func (r *RBush) LoadSortedArray(points Interface) *RBush {
+	return r.load(points, true)
+}
+
+func (r *RBush) load (points Interface, isSorted bool) *RBush {
 	if points.Len() == 0 {
 		return r
 	}
@@ -143,7 +143,7 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 		return r
 	}
 	// TODO points.Len < MIN_ENTRIEs
-	node := r.build(points)
+	node := r.build(points, isSorted)
 	if len(r.rootNode.children) == 0 {
 		r.rootNode = node
 	} else if r.rootNode.height == node.height {
@@ -163,7 +163,7 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 }
 
 // points is assumed to be ordered
-func (r *RBush) build(points Interface) *Node {
+func (r *RBush) build(points Interface, isSorted bool) *Node {
 
 	confirmCh := make(chan int, 1)
 
@@ -172,7 +172,7 @@ func (r *RBush) build(points Interface) *Node {
 		points: points}
 	remainingNodes := 1
 
-	go r.buildNodeDownwards(rootNode, confirmCh, true)
+	go r.buildNodeDownwards(rootNode, confirmCh, true, isSorted)
 	for remainingNodes > 0 {
 		i := <-confirmCh
 		remainingNodes += i
@@ -182,7 +182,7 @@ func (r *RBush) build(points Interface) *Node {
 	return rootNode
 }
 
-func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bool) {
+func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync, isSorted bool) {
 	if isCalledAsync {
 		defer func() {
 			confirmCh <- -1
@@ -202,15 +202,16 @@ func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bo
 	N2 := int(math.Ceil(float64(N) / M))
 	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
 
-	if (n.parentNode != nil) {
+	// parent node might already be sorted. In that case we avoid double computation
+	if (n.parentNode != nil || !isSorted) {
 		sortX := xSorter{n: n, start: 0, end: n.points.Len(), bucketSize:  N1}
-		sort.Sort(sortX)
+		sortX.Sort()
 	}
 	// runtime.Breakpoint()
 	for i := 0; i < n.points.Len(); i += N1 {
 		right2 := minInt(i+N1, n.points.Len())
 		sortY := ySorter{n: n, start: i, end: right2, bucketSize: N2}
-		sort.Sort(sortY)
+		sortY.Sort()
 		for j := i; j < right2; j += N2 {
 			right3 := minInt(j+N2, right2)
 			child := Node{
@@ -229,12 +230,13 @@ func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bo
 		// Only launch a goroutine for big height. we don't want a goroutine to sort 4 points
 		if n.height > MAX_HEIGHT_TO_SPLIT {
 			confirmCh <- 1
-			go r.buildNodeDownwards(c, confirmCh, true)
+			go r.buildNodeDownwards(c, confirmCh, true, false)
 		} else {
-			r.buildNodeDownwards(c, confirmCh, false)
+			r.buildNodeDownwards(c, confirmCh, false, false)
 		}
 	}
 }
+
 
 func (r *RBush) InsertElement(p Interface) {
 	x1, y1, x2, y2 := p.GetBBoxAt(0)

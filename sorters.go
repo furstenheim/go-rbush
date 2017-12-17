@@ -46,6 +46,10 @@ func (s xSorter) Len() int {
 	return s.end - s.start
 }
 
+func (s xSorter) Sort() {
+	FloydRivestBuckets(s, s.bucketSize, 0, s.Len() - 1)
+}
+
 type ySorter struct {
 	n          *Node
 	start, end, bucketSize int
@@ -63,4 +67,8 @@ func (s ySorter) Swap(i, j int) {
 
 func (s ySorter) Len() int {
 	return s.end - s.start
+}
+func (s ySorter) Sort() {
+	// we already do the shifting on the sort functions
+	FloydRivestBuckets(s, s.bucketSize, 0, s.Len() - 1)
 }
