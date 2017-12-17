@@ -240,8 +240,8 @@ func TestRBush_SearchInBBox(t *testing.T) {
 	for i, n := range nodes {
 		result[i] = n.BBox
 	}
-	expected := []BBox{{70,20,70,20},{75,25,75,25},{45,45,45,45},{50,50,50,50},{60,60,60,60},{70,70,70,70},
-		{45,20,45,20},{45,70,45,70},{75,50,75,50},{50,25,50,25},{60,35,60,35},{70,45,70,45}}
+	expected := []BBox{{70, 20, 70, 20}, {75, 25, 75, 25}, {45, 45, 45, 45}, {50, 50, 50, 50}, {60, 60, 60, 60}, {70, 70, 70, 70},
+		{45, 20, 45, 20}, {45, 70, 45, 70}, {75, 50, 75, 50}, {50, 25, 50, 25}, {60, 35, 60, 35}, {70, 45, 70, 45}}
 
 	sorterFactory := func(a []BBox) func(i, j int) bool {
 		return func(i, j int) bool {
@@ -301,7 +301,7 @@ func TestRBush_SearchInBBoxGetAll(t *testing.T) {
 		result[i] = n.BBox
 	}
 	expected := make([]BBox, len(data1))
-	for i, d := range(data1) {
+	for i, d := range data1 {
 		expected[i] = BBox{d[0], d[1], d[2], d[3]}
 	}
 	sorterFactory := func(a []BBox) func(i, j int) bool {
@@ -328,9 +328,6 @@ func TestRBush_SearchInBBoxGetAll(t *testing.T) {
 	}
 }
 
-
-
-
 func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	childNodes := n.flattenDownwards()
 	recoveredPoints := make([][4]float64, 0, len(childNodes))
@@ -352,7 +349,7 @@ func getSomeData(n int) coordinates {
 func getSomeDataBBoxes(n int) bboxes {
 	data := make([][4]float64, 0, n)
 	for i := 0; i < n; i++ {
-		data = append(data, [4]float64{float64(i), float64(i),float64(i), float64(i)})
+		data = append(data, [4]float64{float64(i), float64(i), float64(i), float64(i)})
 	}
 	return bboxes(data)
 }

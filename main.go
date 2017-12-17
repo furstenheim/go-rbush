@@ -11,7 +11,7 @@ import (
 
 const (
 	MIN_ENTRIES         = 4
-	MAX_HEIGHT_TO_SPLIT = 5 // When creating the index we'll split the task into a new goroutine until we reach this height
+	MAX_HEIGHT_TO_SPLIT = 3 // When creating the index we'll split the task into a new goroutine until we reach this height
 )
 
 type Interface interface {
@@ -135,9 +135,9 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 		return r
 	}
 
-	if (points.Len() < MIN_ENTRIES) {
-		for i := 0; i < points.Len(); i ++ {
-			r.InsertElement(points.Slice(i, i + 1))
+	if points.Len() < MIN_ENTRIES {
+		for i := 0; i < points.Len(); i++ {
+			r.InsertElement(points.Slice(i, i+1))
 		}
 		return r
 	}
@@ -313,7 +313,7 @@ func (r *RBush) split(n *Node) {
 	n.chooseSplitAxis()
 	i := n.chooseSplitIndex()
 	newNode := Node{
-		children:   n.children[i : len(n.children)],
+		children:   n.children[i:len(n.children)],
 		height:     n.height,
 		parentNode: n.parentNode,
 		isLeaf:     n.isLeaf,
@@ -428,11 +428,11 @@ func (n *Node) partialBBox(start, end int) BBox {
 	return bbox
 }
 
-func (r * RBush) Clear() {
+func (r *RBush) Clear() {
 
 }
 
-func (r * RBush) initRootNode () {
+func (r *RBush) initRootNode() {
 	r.rootNode = &Node{
 		children: []*Node{},
 		BBox: BBox{
