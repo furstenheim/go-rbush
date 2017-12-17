@@ -126,6 +126,7 @@ func (n *Node) flattenDownwards() []*Node {
 
 func (r *RBush) Load(points Interface) *RBush {
 	sort.Sort(pointSorter{i: points})
+
 	r.LoadSortedArray(points)
 	return r
 }
@@ -165,7 +166,10 @@ func (r *RBush) LoadSortedArray(points Interface) *RBush {
 func (r *RBush) build(points Interface) *Node {
 
 	confirmCh := make(chan int, 1)
-	rootNode := &Node{height: -1, points: points}
+
+	rootNode := &Node{
+		height: int(math.Ceil(math.Log(float64(points.Len())) / math.Log(float64(r.options.MAX_ENTRIES)))),
+		points: points}
 	remainingNodes := 1
 
 	go r.buildNodeDownwards(rootNode, confirmCh, true)
@@ -192,24 +196,20 @@ func (r *RBush) buildNodeDownwards(n *Node, confirmCh chan int, isCalledAsync bo
 		n.setLeafNode(n.points)
 		return
 	}
-	// sort on x, then split in equal size buckets and sort in y
-	// root node is assumed sorted so there is no need to sort
-	// first node inserted
-	if n.height == -1 {
-		// This is the target height
-		n.height = int(math.Ceil(math.Log(float64(N)) / math.Log(float64(r.options.MAX_ENTRIES))))
-	} else {
-		sortX := xSorter{n: n, start: 0, end: n.points.Len()}
-		sort.Sort(sortX)
-	}
+
 	M = math.Ceil(float64(N) / float64(math.Pow(float64(r.options.MAX_ENTRIES), float64(n.height-1))))
 
 	N2 := int(math.Ceil(float64(N) / M))
 	N1 := N2 * int(math.Ceil(math.Sqrt(M)))
+
+	if (n.parentNode != nil) {
+		sortX := xSorter{n: n, start: 0, end: n.points.Len(), bucketSize:  N1}
+		sort.Sort(sortX)
+	}
 	// runtime.Breakpoint()
 	for i := 0; i < n.points.Len(); i += N1 {
 		right2 := minInt(i+N1, n.points.Len())
-		sortY := ySorter{n: n, start: i, end: right2}
+		sortY := ySorter{n: n, start: i, end: right2, bucketSize: N2}
 		sort.Sort(sortY)
 		for j := i; j < right2; j += N2 {
 			right3 := minInt(j+N2, right2)

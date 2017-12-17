@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 // BenchmarkRBush_Load1Million-4   	       2	2560060423 ns/op	178742352 B/op	 2248314 allocs/op
+// BenchmarkRBush_Load1Million-4   	       2	2504327041 ns/op	178739752 B/op	 2248296 allocs/op
+
 func BenchmarkRBush_Load1Million(b *testing.B) {
 	for i:= 0; i < b.N; i ++ {
 		var bigData = getData(1000000, 1)

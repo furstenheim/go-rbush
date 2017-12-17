@@ -5,8 +5,10 @@ type pointSorter struct {
 }
 
 func (s pointSorter) Less(i, j int) bool {
-	x1, y1, _, _ := s.i.GetBBoxAt(i)
-	x2, y2, _, _ := s.i.GetBBoxAt(j)
+	x1, _, _, _ := s.i.GetBBoxAt(i)
+	x2, _, _, _ := s.i.GetBBoxAt(j)
+	return x1 < x2
+	/*
 	if x1 < x2 {
 		return true
 	}
@@ -14,6 +16,7 @@ func (s pointSorter) Less(i, j int) bool {
 		return y1 < y2
 	}
 	return false
+	*/
 }
 
 func (s pointSorter) Swap(i, j int) {
@@ -26,7 +29,7 @@ func (s pointSorter) Len() int {
 
 type xSorter struct {
 	n          *Node
-	start, end int
+	start, end, bucketSize int
 }
 
 func (s xSorter) Less(i, j int) bool {
@@ -45,7 +48,7 @@ func (s xSorter) Len() int {
 
 type ySorter struct {
 	n          *Node
-	start, end int
+	start, end, bucketSize int
 }
 
 func (s ySorter) Less(i, j int) bool {
