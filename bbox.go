@@ -10,6 +10,12 @@ func (b BBox) area() float64 {
 	return (b.MaxX - b.MinX) * (b.MaxY - b.MinY)
 }
 
+func (b1 BBox) equals (b2 BBox) bool {
+	return b1.MinX == b2.MinX &&
+		b1.MinY == b2.MinY &&
+		b1.MaxX == b2.MaxX &&
+		b1.MaxY == b2.MaxY
+}
 func (b1 BBox) extend(b2 BBox) BBox {
 	return BBox{
 		MinX: math.Min(b1.MinX, b2.MinX),

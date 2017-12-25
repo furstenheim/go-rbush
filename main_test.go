@@ -328,6 +328,34 @@ func TestRBush_SearchInBBoxGetAll(t *testing.T) {
 	}
 }
 
+func TestRBush_Remove(t *testing.T) {
+	data1 := getDataExample()
+	tree1 := NewWithOptions(Options{MAX_ENTRIES: 4}).
+		Load(data1)
+	tree1.Remove(bboxToRemove(data1[0]))
+	tree1.Remove(bboxToRemove(data1[1]))
+	tree1.Remove(bboxToRemove(data1[2]))
+	tree1.Remove(bboxToRemove(data1[len(data1) - 1]))
+	tree1.Remove(bboxToRemove(data1[len(data1) - 2]))
+	tree1.Remove(bboxToRemove(data1[len(data1) - 3]))
+
+	recoveredPoints1 := getTreePointsAsCoordinates(tree1.rootNode)
+	expected := data1[3: len(data1) - 3]
+	sort.Sort(bboxes(expected))
+	result := recoveredPoints1
+
+	assertEqual(t, len(result), len(expected),
+		fmt.Sprintf("We should get the same amout of points, %v %v", len(result), len(expected)))
+	if len(result) != len(expected) {
+		fmt.Println(result)
+		fmt.Println(expected)
+		return
+	}
+	for i, _ := range result {
+		assertEqual(t, result[i], expected[i], "")
+	}
+}
+
 func getTreePointsAsCoordinates(n *Node) [][4]float64 {
 	childNodes := n.flattenDownwards()
 	recoveredPoints := make([][4]float64, 0, len(childNodes))
@@ -397,6 +425,23 @@ func (c bboxes) Less(i, j int) bool {
 	}
 	return c[i][1] < c[j][1]
 }
+
+type bboxToRemove [4]float64
+
+func (b bboxToRemove) GetBBox () (x1, y1, x2, y2 float64) {
+	return b[0], b[1], b[2], b[3]
+}
+
+func (b bboxToRemove) IsContained (points Interface) bool {
+	bb := points.(bboxes)
+	for _, b2 := range (bb) {
+		if b == b2 {
+			return true
+		}
+	}
+	return false
+}
+
 
 func assertEqual(t *testing.T, a interface{}, b interface{}, message string) {
 	if a == b {

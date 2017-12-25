@@ -448,8 +448,86 @@ func (r *RBush) initRootNode() {
 	}
 }
 
-func (r RBush) Remove() {
 
+func (r *RBush) Remove(p ToBeRemoved) (*RBush){
+	x1, y1, x2, y2 := p.GetBBox()
+	bbox := BBox{x1, y1, x2, y2}
+	node := r.rootNode
+	nodesToSearch := make([]*Node, 0, 1)
+	indexes := make([]int, 0, r.rootNode.height) // keep track of indices to clean
+	currentIndex := 0 // index at current level
+	isGoingUp := false
+	nodesToSearch = append(nodesToSearch, node)
+	for node != nil {
+		if (node.isLeaf) {
+			index := node.findIndexToRemove(p)
+			if (index != -1) {
+				indexes = append(indexes, currentIndex, index)
+				// remove first index because we always have 0 for root node
+				node.children[index].removeUpwards(indexes[1:])
+				return r
+			}
+		}
+
+		if (!isGoingUp && !node.isLeaf && node.BBox.contains(bbox)) { // go down
+			indexes = append(indexes, currentIndex)
+			currentIndex = 0
+			node = node.children[0] // TODO check size 0
+		} else if node.parentNode != nil && currentIndex < len(node.parentNode.children) - 1 { // go sideways
+			currentIndex++
+			node = node.parentNode.children[currentIndex]
+			isGoingUp = false
+		} else {
+			// we found nothing. Go up
+			node = node.parentNode
+			isGoingUp = true
+			indexes, currentIndex = indexes[0: len(indexes) -1], indexes[len(indexes) -1]
+		}
+	}
+	return r
+}
+
+func (n *Node) findIndexToRemove (p ToBeRemoved) (int) {
+	index := -1
+	x1, y1, x2, y2 := p.GetBBox()
+	bbox := BBox{x1, y1, x2, y2}
+	// Maybe we can do something fancier since points might be ordered
+	for i, c := range(n.children) {
+		if bbox.equals(c.BBox) && p.IsContained(c.points) {
+			return i
+		}
+	}
+	return index
+}
+
+// Remove node from parent and condense if necessary. Update bboxes
+// indexes represent indexes in parent
+func (n *Node) removeUpwards(indexes []int) {
+	nodeToRemove := n
+	parent := n.parentNode
+	for i := len(indexes) - 1; i >= 0; i-- {
+		index := indexes[i]
+		if nodeToRemove != nil {
+			var removedNode *Node
+			removedNode = parent.children[index]
+			parent.children = append(parent.children[0: index], parent.children[index + 1: len(parent.children)]...)
+			if (nodeToRemove != removedNode) {
+				log.Fatal("Removed incorrect node")
+			}
+			if len(parent.children) == 0 {
+				nodeToRemove = parent
+			} else {
+				nodeToRemove = nil
+			}
+		}
+		parent.BBox = parent.partialBBox(0, len(parent.children))
+		parent = parent.parentNode
+	}
+}
+
+type ToBeRemoved interface {
+	GetBBox () (x1, y1, x2, y2 float64)
+	IsContained (points Interface) bool
 }
 
 func (r RBush) ToBBox() {
